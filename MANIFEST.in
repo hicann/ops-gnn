@@ -1,0 +1,7 @@
+include README.md
+include LICENSE
+include CMakeLists.txt
+include cmake/OpsGNNConfig.cmake.in
+recursive-include csrc *.h *.cpp *.cu
+recursive-include python *.py *.so
+recursive-include test *.py
