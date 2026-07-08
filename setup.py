@@ -10,11 +10,9 @@ See LICENSE in the root of the software repository for the full text of the Lice
 
 import glob
 import os
-import os.path as osp
 import platform
 import shutil
 import subprocess
-import sys
 
 from setuptools import find_packages, setup
 from setuptools.command.build_py import build_py
@@ -25,76 +23,9 @@ URL = 'https://gitcode.com/cann/ops-gnn'
 
 BUILD_DOCS = os.getenv('BUILD_DOCS', '0') == '1'
 
-
-def compile_npu_kernel():
-    import torch
-    
-    if 'ASCEND_HOME_PATH' not in os.environ:
-        raise EnvironmentError("ASCEND_HOME_PATH environment variable not set. Please source /usr/local/Ascend/cann-9.1.0-beta.1/bin/setenv.bash first.")
-    
-    cann_path = os.environ['ASCEND_HOME_PATH']
-    
-    asc_files = glob.glob('csrc/npu/kernel/*.asc')
-    if not asc_files:
-        return None
-    
-    npu_kernel_lib = 'build/kernel/libopsgnn_npu_kernel.so'
-    os.makedirs(os.path.dirname(npu_kernel_lib), exist_ok=True)
-    
-    include_flags = [
-        f'-I{cann_path}/include/ascendc/basic_api',
-        f'-I{cann_path}/include/ascendc',
-        f'-I{cann_path}/include',
-        f'-I{cann_path}/x86_64-linux/asc/include/simt_api',
-        f'-I{cann_path}/x86_64-linux/asc/include',
-        f'-I{cann_path}/x86_64-linux/asc/include/utils/base',
-        f'-I{cann_path}/acllib/include',
-        '-Icsrc',
-        '-Icsrc/npu',
-        '-Icsrc/npu/kernel',
-    ]
-    
-    link_flags = [
-        f'-L{cann_path}/lib64',
-        f'-L{cann_path}/acllib/lib64',
-        '-lplatform',
-        '-lascendcl',
-        '-lruntime',
-        '-ltiling_api',
-        '-lunified_dlog',
-        '-ldl',
-    ]
-    
-    cmd = ['ccec', '--asc-aicore-lang', '--npu-arch=dav-3510', '-shared', '-o', npu_kernel_lib, '-std=c++17', '-D_GLIBCXX_USE_CXX11_ABI=1', '-fPIC', '-O2'] + include_flags + asc_files + link_flags
-    
-    print(f'Compiling NPU kernel library: {" ".join(cmd)}')
-    
-    try:
-        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
-        if result.stdout:
-            print(f'Stdout: {result.stdout}')
-        
-        output_kernel_dir = 'output/kernel'
-        os.makedirs(output_kernel_dir, exist_ok=True)
-        output_kernel_lib = os.path.join(output_kernel_dir, os.path.basename(npu_kernel_lib))
-        shutil.copy2(npu_kernel_lib, output_kernel_lib)
-        print(f'Copied NPU kernel library to: {output_kernel_lib}')
-        
-        return npu_kernel_lib
-    except subprocess.CalledProcessError as e:
-        print(f'NPU kernel compilation failed: {e}')
-        print(f'Stderr: {e.stderr if e.stderr else "None"}')
-        print(f'Stdout: {e.stdout if e.stdout else "None"}')
-        raise
-
-
 def build_with_cmake():
-    import torch
-    
     if 'ASCEND_HOME_PATH' not in os.environ:
-        raise EnvironmentError("ASCEND_HOME_PATH environment variable not set. Please source /usr/local/Ascend/cann-9.1.0-beta.1/bin/setenv.bash first.")
-    
-    cann_path = os.environ['ASCEND_HOME_PATH']
+        raise EnvironmentError("ASCEND_HOME_PATH environment variable not set. Please source set_env.sh first.")
     
     cmake_build_dir = 'build/cmake_python'
     os.makedirs(cmake_build_dir, exist_ok=True)
@@ -123,22 +54,9 @@ def build_with_cmake():
         pybind_dest = os.path.join('python', 'ops_gnn', '_pybind.so')
         shutil.copy2(pybind_lib, pybind_dest)
         print(f'Copied _pybind.so to: {pybind_dest}')
-    
-    return pybind_lib
 
-
-def get_extensions():
-    if BUILD_DOCS:
-        return []
-    
+if not BUILD_DOCS:
     build_with_cmake()
-    
-    return []
-
-
-def get_build_ext():
-    return {}
-
 
 class CustomBuildPy(build_py):
     def run(self):
@@ -151,7 +69,6 @@ class CustomBuildPy(build_py):
             shutil.copy2(pybind_src, pybind_dest)
             print(f'Copied _pybind.so to build lib: {pybind_dest}')
 
-
 class CustomBDistWheel(bdist_wheel):
     def finalize_options(self):
         bdist_wheel.finalize_options(self)
@@ -160,54 +77,33 @@ class CustomBDistWheel(bdist_wheel):
         self.dist_dir = whl_output_dir
     
     def get_tag(self):
-        arch = platform.machine()
-        platform_tag = f'linux_{arch}'
+        platform_tag = f'linux_{platform.machine()}'
         return ('py3', 'none', platform_tag)
     
     def run(self):
         bdist_wheel.run(self)
-        arch = platform.machine()
-        platform_tag = f'linux_{arch}'
+        platform_tag = f'linux_{platform.machine()}'
         whl_files = glob.glob(os.path.join(self.dist_dir, '*.whl'))
         for whl_file in whl_files:
             base_name = os.path.basename(whl_file)
             new_name = base_name.replace(f'-py3-none-{platform_tag}', f'-{platform_tag}')
-            new_path = os.path.join(self.dist_dir, new_name)
-            os.rename(whl_file, new_path)
-
-
-install_requires = []
-
-test_requires = [
-    'pytest',
-    'pytest-cov',
-]
-
-include_package_data = True
-
-def get_cmdclass():
-    cmdclass = get_build_ext()
-    cmdclass['build_py'] = CustomBuildPy
-    cmdclass['bdist_wheel'] = CustomBDistWheel
-    return cmdclass
-
+            os.rename(whl_file, os.path.join(self.dist_dir, new_name))
 
 setup(
     name='ops_gnn',
     version=__version__,
-    description=(
-        'OpsGNN: Library of Optimized Graph Neural Network Algorithms for NPU'
-    ),
+    description='OpsGNN: Library of Optimized Graph Neural Network Algorithms for NPU',
     author='Ascend',
-    author_email='your.email@example.com',
     url=URL,
     download_url=f'{URL}/archive/{__version__}.tar.gz',
     python_requires='>=3.8',
-    install_requires=install_requires,
-    extras_require={'test': test_requires},
-    ext_modules=get_extensions() if not BUILD_DOCS else [],
-    cmdclass=get_cmdclass(),
+    extras_require={'test': ['pytest', 'pytest-cov']},
+    ext_modules=[],
+    cmdclass={
+        'build_py': CustomBuildPy,
+        'bdist_wheel': CustomBDistWheel,
+    },
     packages=find_packages('python'),
     package_dir={'': 'python'},
-    include_package_data=include_package_data,
+    include_package_data=True,
 )

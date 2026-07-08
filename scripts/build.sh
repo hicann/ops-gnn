@@ -49,6 +49,7 @@ ${BLUE}ops-gnn 构建脚本${NC}
     -t, --type TYPE      构建类型 (Debug/Release) [默认: Release]
     --npu-arch ARCH      NPU 架构 (dav-3510/dav-610等) [默认: dav-3510]
     --no-python          禁用 Python 绑定 (仅 C++ 构建)
+    -c, --clean          清理构建缓存 (删除 build 和 output 目录)
     -h, --help           显示帮助信息
 
 示例:
@@ -57,6 +58,9 @@ ${BLUE}ops-gnn 构建脚本${NC}
 
     # 构建 C++ 二进制
     $0 cpp
+
+    # 清理缓存后构建
+    $0 cpp --clean
 
     # 同时构建两者
     $0 all -t Debug
@@ -89,6 +93,8 @@ log_error() {
 ###############################################################################
 BUILD_TARGET="python"
 
+CLEAN_BUILD="OFF"
+
 while [[ $# -gt 0 ]]; do
     case $1 in
         python|cpp|all)
@@ -107,6 +113,10 @@ while [[ $# -gt 0 ]]; do
             WITH_PYTHON="OFF"
             shift
             ;;
+        -c|--clean)
+            CLEAN_BUILD="ON"
+            shift
+            ;;
         -h|--help)
             usage
             ;;
@@ -116,6 +126,18 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+###############################################################################
+# 清理构建缓存
+###############################################################################
+clean_build() {
+    if [ "$CLEAN_BUILD" = "ON" ]; then
+        log_info "清理构建缓存..."
+        rm -rf "$PROJECT_ROOT/build"
+        rm -rf "$PROJECT_ROOT/output"
+        log_info "缓存清理完成"
+    fi
+}
 
 ###############################################################################
 # 版本比较函数
@@ -233,6 +255,8 @@ build_python() {
 build_cpp() {
     log_info "开始构建 C++ 二进制..."
 
+    clean_build
+
     BUILD_DIR="$PROJECT_ROOT/build/cpp"
     mkdir -p "$BUILD_DIR"
     cd "$BUILD_DIR"
@@ -253,6 +277,19 @@ build_cpp() {
     log_info "安装到 output/kernel..."
     cmake --install .
 
+    # 更新 Python 包中的 so 文件
+    if [ "$WITH_PYTHON" = "ON" ]; then
+        PYTHON_SO_PATH="$PROJECT_ROOT/python/ops_gnn/_pybind.so"
+        OUTPUT_SO_PATH="$INSTALL_PREFIX/kernel/lib_pybind.so"
+        if [ -f "$OUTPUT_SO_PATH" ]; then
+            log_info "更新 Python 包中的 so 文件..."
+            cp "$OUTPUT_SO_PATH" "$PYTHON_SO_PATH"
+            log_info "so 文件已更新: $PYTHON_SO_PATH"
+        else
+            log_warn "so 文件未找到: $OUTPUT_SO_PATH"
+        fi
+    fi
+
     log_info "C++ 二进制构建完成!"
     log_info "输出目录: $BUILD_DIR"
     log_info "安装目录: $INSTALL_PREFIX/kernel"
@@ -267,6 +304,7 @@ main() {
     log_info "构建类型: $BUILD_TYPE"
     log_info "NPU 架构: $NPU_ARCH"
     log_info "Python 绑定: $WITH_PYTHON"
+    log_info "清理缓存: $CLEAN_BUILD"
 
     check_env
 

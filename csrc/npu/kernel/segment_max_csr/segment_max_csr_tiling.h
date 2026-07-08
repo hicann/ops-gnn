@@ -8,12 +8,23 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include <torch/extension.h>
-#include "host/add_sample/add_sample.h"
-#include "host/segment_max_csr/segment_max_csr.h"
+#pragma once
 
-PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-    m.doc() = "ops_gnn: NPU extension";
-    m.def("add_sample", &add_sample, py::arg("src1"), py::arg("src2"), "两个tensor逐元素相加(NPU)");
-    m.def("segment_max_csr", &segment_max_csr, py::arg("src"), py::arg("indptr"), py::arg("optional_out") = torch::Tensor(), "Segment max csr(NPU)");
-}
+struct SegmentMaxCsrTilingData {
+    uint32_t srcLength;
+    uint32_t E_1;
+    uint32_t nSegments;
+    uint32_t M;
+    uint32_t K;
+    uint32_t indptrPhysicalNum;
+    uint32_t coreDataNum;
+    uint32_t coreTailDataNum;
+    uint32_t ALIGN_NUM;
+    uint32_t aivNum;
+    uint32_t rowsPerAiv;
+    uint32_t rowsLastAiv;
+    uint32_t KloopTime;
+    uint32_t hasOptionalOut;
+    uint32_t indptrDimNum;
+    uint32_t strideIndptr;
+};

@@ -11,19 +11,15 @@ ops-gnn/
 ├── csrc/                       # C++/AscendC源码目录
 │   ├── pybind.cpp              # PyTorch绑定代码
 │   └── npu/                    # NPU相关代码
-│       ├── add_sample.cpp      # NPU算子接口实现
-│       ├── add_sample.h        # NPU算子头文件
-│       └── kernel/             # AscendC内核实现
-│           ├── add_sample_kernel.asc    # AscendC内核源码
-│           └── add_sample_kernel.h      # 内核头文件
+│       ├── host/               # Host端代码（按算子分类）
+│       └── kernel/             # AscendC内核实现（按算子分类）
 ├── python/                     # Python源码目录
 │   └── ops_gnn/                # Python包目录
 │       ├── __init__.py         # 包初始化文件
 │       ├── add_sample.py       # Python接口声明
+│       ├── segment_max_csr.py  # Python接口声明
 │       └── typing.py           # 类型定义
 ├── test/                       # 测试目录
-│   ├── test_example.py         # 功能测试
-│   └── test_import.py          # 导入测试
 ├── scripts/                    # 构建脚本目录
 │   └── build.sh                # 统一构建脚本
 ├── cmake/                      # CMake配置
@@ -103,6 +99,12 @@ src1 = torch.tensor([1, 2, 3, 4, 5], dtype=torch.uint8, device='npu')
 src2 = torch.tensor([5, 4, 3, 2, 1], dtype=torch.uint8, device='npu')
 result = ops_gnn.add_sample(src1, src2)
 print(result)  # 输出: tensor([6, 6, 6, 6, 6], device='npu:0', dtype=torch.uint8)
+
+# CSR 格式的分段最大值运算
+src = torch.tensor([[1, 2], [3, 4], [5, 6], [7, 8]], dtype=torch.float32, device='npu')
+indptr = torch.tensor([0, 2, 4], dtype=torch.int32, device='npu')
+result = ops_gnn.segment_max_csr(src, indptr)
+print(result)  # 输出: tensor([[3, 4], [7, 8]], device='npu:0')
 ```
 
 ## 算子列表
@@ -110,18 +112,18 @@ print(result)  # 输出: tensor([6, 6, 6, 6, 6], device='npu:0', dtype=torch.uin
 | 算子 | 功能 | 设备支持 |
 |------|------|----------|
 | `add_sample` | 两个 tensor 逐元素相加 | NPU |
+| `segment_max_csr` | CSR 格式的分段最大值运算 | NPU |
 
 ## 开发指南
 
 ### 添加新的 NPU 算子
 
-1. 在 `csrc/npu/kernel/` 中创建 AscendC 内核文件（`.asc`）
-2. 在 `csrc/npu/kernel/` 中创建内核头文件（`.h`）
-3. 在 `csrc/npu/` 中创建算子接口实现（`.cpp`）和头文件（`.h`）
-4. 在 `csrc/pybind.cpp` 中添加 PyTorch 绑定
-5. 在 `python/ops_gnn/` 中创建 Python 接口声明文件
-6. 更新 `python/ops_gnn/__init__.py` 导出新函数
-7. 在 `test/` 中添加测试文件
+1. 在 `csrc/npu/kernel/<算子名>/` 中创建 AscendC 内核文件（`.cpp`/`.asc`）和头文件（`.h`）
+2. 在 `csrc/npu/host/<算子名>/` 中创建算子接口实现（`.cpp`）和头文件（`.h`）
+3. 在 `csrc/pybind.cpp` 中添加 PyTorch 绑定
+4. 在 `python/ops_gnn/` 中创建 Python 接口声明文件
+5. 更新 `python/ops_gnn/__init__.py` 导出新函数
+6. 在 `test/` 中添加测试文件
 
 ## 参考
 

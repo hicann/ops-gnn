@@ -8,12 +8,18 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include <torch/extension.h>
-#include "host/add_sample/add_sample.h"
-#include "host/segment_max_csr/segment_max_csr.h"
+#include "add_sample.h"
+#include "kernel/add_sample/add_sample_kernel.h"
 
-PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-    m.doc() = "ops_gnn: NPU extension";
-    m.def("add_sample", &add_sample, py::arg("src1"), py::arg("src2"), "两个tensor逐元素相加(NPU)");
-    m.def("segment_max_csr", &segment_max_csr, py::arg("src"), py::arg("indptr"), py::arg("optional_out") = torch::Tensor(), "Segment max csr(NPU)");
+torch::Tensor add_sample(torch::Tensor src1, torch::Tensor src2)
+{
+    uint32_t valueNum = src1.numel();
+    torch::Tensor dst = torch::zeros_like(src1);
+    aclrtStream stream = nullptr;
+
+    aclrtCreateStream(&stream);
+    LaunchAddSampleKernel(src1.data_ptr<uint8_t>(), src2.data_ptr<uint8_t>(), dst.data_ptr<uint8_t>(), valueNum, stream);
+    aclrtSynchronizeStream(stream);
+    aclrtDestroyStream(stream);
+    return dst;
 }
