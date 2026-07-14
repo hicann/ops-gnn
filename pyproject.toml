@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=45", "wheel", "torch>=1.8"]
+requires = ["setuptools>=61", "wheel", "torch>=1.8"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,14 +8,13 @@ version = "0.1.0"
 description = "PyTorch Extension Library of Optimized Graph Neural Network Algorithms"
 readme = "README.md"
 requires-python = ">=3.8"
-license = { text = "MIT" }
+dynamic = ["license"]
 authors = [
     { name = "Your Name", email = "your.email@example.com" }
 ]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: C++",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",

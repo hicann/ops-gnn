@@ -34,9 +34,10 @@ ops-gnn/
 
 ## 环境要求
 
-- Python 3.8+
-- PyTorch 2.0+
-- torch_npu (PyTorch NPU 扩展)
+- Python 3.9+
+- CMake 3.15+
+- PyTorch 2.7+
+- torch_npu 26.0.0 (PyTorch NPU 扩展)
 - CANN Toolkit (AscendC 编译器)
 - C++17 或更高版本编译器
 

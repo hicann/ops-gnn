@@ -423,7 +423,7 @@ private:
 };
 
 template <typename T>
-__global__ __aicore__ void segment_max_csr_kernel(GM_ADDR src, GM_ADDR indptr, GM_ADDR optional_out,
+__attribute__((aiv)) __global__ __aicore__ void segment_max_csr_kernel(GM_ADDR src, GM_ADDR indptr, GM_ADDR optional_out,
                                                   GM_ADDR out, const SegmentMaxCsrTilingData tiling)
 {
     TPipe pipe;

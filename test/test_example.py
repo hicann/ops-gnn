@@ -18,15 +18,15 @@ def test_add_sample_npu():
     torch.npu.set_device(4)
     torch.manual_seed(42)
     shape = (1024, 1024)
-    src1 = torch.randint(0, 128, shape, dtype=torch.uint8, device='npu')
-    src2 = torch.randint(0, 128, shape, dtype=torch.uint8, device='npu')
+    src1 = torch.randint(0, 128, shape, dtype=torch.uint8).npu()
+    src2 = torch.randint(0, 128, shape, dtype=torch.uint8).npu()
     
     result = ops_gnn.add_sample(src1, src2)
-    
-    expected = src1 + src2
+
+    expected = src1.cpu() + src2.cpu()
     assert result.device.type == 'npu'
     assert result.shape == shape
-    assert torch.equal(result, expected)
+    assert torch.equal(result.cpu(), expected)
 
 
 if __name__ == '__main__':

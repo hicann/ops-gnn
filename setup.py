@@ -7,16 +7,12 @@ THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, E
 INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 See LICENSE in the root of the software repository for the full text of the License.
 """
-
-import glob
 import os
-import platform
 import shutil
 import subprocess
 
 from setuptools import find_packages, setup
 from setuptools.command.build_py import build_py
-from wheel.bdist_wheel import bdist_wheel
 
 __version__ = '0.1.0'
 URL = 'https://gitcode.com/cann/ops-gnn'
@@ -28,6 +24,11 @@ def build_with_cmake():
         raise EnvironmentError("ASCEND_HOME_PATH environment variable not set. Please source set_env.sh first.")
     
     cmake_build_dir = 'build/cmake_python'
+    # 删除 CMakeCache.txt，避免 pip 拷贝源码到临时目录后
+    # cmake 检测到缓存的源路径与当前路径不一致而报错
+    cache_file = os.path.join(cmake_build_dir, 'CMakeCache.txt')
+    if os.path.exists(cache_file):
+        os.remove(cache_file)
     os.makedirs(cmake_build_dir, exist_ok=True)
     
     cmake_cmd = [
@@ -69,39 +70,18 @@ class CustomBuildPy(build_py):
             shutil.copy2(pybind_src, pybind_dest)
             print(f'Copied _pybind.so to build lib: {pybind_dest}')
 
-class CustomBDistWheel(bdist_wheel):
-    def finalize_options(self):
-        bdist_wheel.finalize_options(self)
-        whl_output_dir = 'output/whl'
-        os.makedirs(whl_output_dir, exist_ok=True)
-        self.dist_dir = whl_output_dir
-    
-    def get_tag(self):
-        platform_tag = f'linux_{platform.machine()}'
-        return ('py3', 'none', platform_tag)
-    
-    def run(self):
-        bdist_wheel.run(self)
-        platform_tag = f'linux_{platform.machine()}'
-        whl_files = glob.glob(os.path.join(self.dist_dir, '*.whl'))
-        for whl_file in whl_files:
-            base_name = os.path.basename(whl_file)
-            new_name = base_name.replace(f'-py3-none-{platform_tag}', f'-{platform_tag}')
-            os.rename(whl_file, os.path.join(self.dist_dir, new_name))
-
 setup(
     name='ops_gnn',
     version=__version__,
     description='OpsGNN: Library of Optimized Graph Neural Network Algorithms for NPU',
+    license='MIT',
     author='Ascend',
     url=URL,
     download_url=f'{URL}/archive/{__version__}.tar.gz',
     python_requires='>=3.8',
-    extras_require={'test': ['pytest', 'pytest-cov']},
     ext_modules=[],
     cmdclass={
         'build_py': CustomBuildPy,
-        'bdist_wheel': CustomBDistWheel,
     },
     packages=find_packages('python'),
     package_dir={'': 'python'},

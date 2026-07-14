@@ -14,7 +14,7 @@
 torch::Tensor add_sample(torch::Tensor src1, torch::Tensor src2)
 {
     uint32_t valueNum = src1.numel();
-    torch::Tensor dst = torch::zeros_like(src1);
+    torch::Tensor dst = torch::empty_like(src1.cpu()).to(src1.device());
     aclrtStream stream = nullptr;
 
     aclrtCreateStream(&stream);

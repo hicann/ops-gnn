@@ -20,7 +20,10 @@ void LaunchSegmentMaxCsrKernel(T* src, int32_t* indptr, T* optional_out, T* out,
     if (coreNum == 0) {
         coreNum = 1;
     }
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wignored-attributes"
     segment_max_csr_kernel<T><<<coreNum, nullptr, stream>>>((GM_ADDR)src, (GM_ADDR)indptr, (GM_ADDR)optional_out, (GM_ADDR)out, tiling);
+#pragma GCC diagnostic pop
 }
 
 template void LaunchSegmentMaxCsrKernel<float>(float* src, int32_t* indptr, float* optional_out, float* out, const SegmentMaxCsrTilingData& tiling, aclrtStream stream);

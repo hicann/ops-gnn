@@ -69,7 +69,7 @@ ${BLUE}ops-gnn 构建脚本${NC}
     $0 cpp --no-python
 
 EOF
-    exit 0
+    exit "${1:-0}"
 }
 
 ###############################################################################
@@ -121,8 +121,9 @@ while [[ $# -gt 0 ]]; do
             usage
             ;;
         *)
-            log_error "未知选项: $1"
-            usage
+            echo -e "${RED}[ERROR]${NC} 未知选项: $1" >&2
+            echo "" >&2
+            usage 1
             ;;
     esac
 done
@@ -160,6 +161,11 @@ find_python() {
 
     PYTHON_VERSION=$($PYTHON_CMD --version 2>&1 | awk '{print $2}')
     log_info "Python 解释器: $PYTHON_CMD (版本: $PYTHON_VERSION)"
+
+    # 设置 Python3_ROOT_DIR，确保 CMake 找到正确的 Python 版本
+    PYTHON_PREFIX=$($PYTHON_CMD -c "import sys; print(sys.prefix)")
+    export Python3_ROOT_DIR="$PYTHON_PREFIX"
+    log_info "Python3_ROOT_DIR: $Python3_ROOT_DIR"
 
     if ! version_ge "$PYTHON_VERSION" "3.8"; then
         log_error "Python 版本需要 >= 3.8，当前版本: $PYTHON_VERSION"
@@ -233,9 +239,10 @@ build_python() {
             log_warn "安装失败，请手动安装: $PYTHON_CMD -m pip install -e ."
     fi
 
-    # 生成 wheel 包
+    # 生成 wheel 包 (使用 pip wheel 避免弃用警告)
     log_info "生成 wheel 包..."
-    $PYTHON_CMD setup.py bdist_wheel
+    mkdir -p output/whl
+    $PYTHON_CMD -m pip wheel . --no-deps --no-build-isolation -w output/whl
 
     # 显示 wheel 包位置
     WHL_FILE=$(find "$PROJECT_ROOT/output/whl" -name "*.whl" 2>/dev/null | head -n1)
@@ -254,8 +261,6 @@ build_python() {
 ###############################################################################
 build_cpp() {
     log_info "开始构建 C++ 二进制..."
-
-    clean_build
 
     BUILD_DIR="$PROJECT_ROOT/build/cpp"
     mkdir -p "$BUILD_DIR"
@@ -306,6 +311,7 @@ main() {
     log_info "Python 绑定: $WITH_PYTHON"
     log_info "清理缓存: $CLEAN_BUILD"
 
+    clean_build
     check_env
 
     case $BUILD_TARGET in

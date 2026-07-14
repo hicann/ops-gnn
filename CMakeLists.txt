@@ -1,4 +1,15 @@
-cmake_minimum_required(VERSION 3.18)
+# -----------------------------------------------------------------------------------------------------------
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# -----------------------------------------------------------------------------------------------------------
+
+
+cmake_minimum_required(VERSION 3.15)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -98,11 +109,7 @@ if(WITH_PYTHON)
     if(DEFINED ENV{Python3_ROOT_DIR})
         set(Python3_ROOT_DIR "$ENV{Python3_ROOT_DIR}" CACHE PATH "Python3 root directory")
         message(STATUS "Python3_ROOT_DIR set from environment: ${Python3_ROOT_DIR}")
-    endif()
 
-    find_package(Python3 COMPONENTS Development QUIET)
-
-    if(NOT Python3_FOUND AND DEFINED Python3_ROOT_DIR)
         execute_process(
             COMMAND "${Python3_ROOT_DIR}/bin/python3" -c "import sysconfig; print(sysconfig.get_paths()['include'])"
             OUTPUT_VARIABLE Python3_INCLUDE_DIRS
@@ -128,10 +135,11 @@ if(WITH_PYTHON)
         message(STATUS "Manually detected Python3:")
         message(STATUS "  Include: ${Python3_INCLUDE_DIRS}")
         message(STATUS "  Library: ${Python3_LIBRARIES}")
-    endif()
-
-    if(NOT Python3_FOUND)
-        message(FATAL_ERROR "Python3 not found. Please set Python3_ROOT_DIR environment variable.")
+    else()
+        find_package(Python3 COMPONENTS Development QUIET)
+        if(NOT Python3_FOUND)
+            message(FATAL_ERROR "Python3 not found. Please set Python3_ROOT_DIR environment variable.")
+        endif()
     endif()
 endif()
 
@@ -161,6 +169,9 @@ if(TORCH_CMAKE_PREFIX_PATH)
     set(CMAKE_PREFIX_PATH "${TORCH_CMAKE_PREFIX_PATH}" "${CMAKE_PREFIX_PATH}")
 endif()
 
+# Suppress kineto warning for CPU torch: pre-set to an existing torch lib
+# so find_library skips the search and no "not found" warning is emitted
+set(kineto_LIBRARY "${TORCH_INSTALL_PREFIX}/lib/libtorch.so" CACHE FILEPATH "" FORCE)
 find_package(Torch REQUIRED)
 
 message(STATUS "Found PyTorch: ${TORCH_INSTALL_PREFIX}")
