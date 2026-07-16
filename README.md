@@ -2,8 +2,6 @@
 
 ops-gnn 是昇腾生态下图神经网络（GNN）算子和特性的集合，支持基于 AscendC 的 NPU 加速。
 
-该项目参考了 [pytorch_cluster](https://github.com/rusty1s/pytorch_cluster) 的框架结构，主要运行在 Linux 系统上。
-
 ## 项目结构
 
 ```
@@ -13,6 +11,7 @@ ops-gnn/
 │   └── npu/                    # NPU相关代码
 │       ├── host/               # Host端代码（按算子分类）
 │       └── kernel/             # AscendC内核实现（按算子分类）
+├── docs/                       # 文档目录
 ├── python/                     # Python源码目录
 │   └── ops_gnn/                # Python包目录
 │       ├── __init__.py         # 包初始化文件
@@ -29,7 +28,7 @@ ops-gnn/
 ├── setup.cfg                   # setuptools配置
 ├── pyproject.toml              # 现代Python项目配置
 ├── MANIFEST.in                 # 打包清单
-└── LICENSE                     # MIT许可证
+└── LICENSE                     # CANN 许可证
 ```
 
 ## 环境要求
@@ -134,4 +133,4 @@ print(result)  # 输出: tensor([[3, 4], [7, 8]], device='npu:0')
 
 ## 许可证
 
-MIT License
+CANN Open Software License Agreement Version 2.0
