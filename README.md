@@ -1,6 +1,6 @@
 # ops-gnn
 
-ops-gnn 是昇腾生态下图神经网络（GNN）算子和特性的集合，支持基于 AscendC 的 NPU 加速。
+ops-gnn 是昇腾生态下针对图神经网络（GNN）推出的一款算子库，支持基于NPU对图神经网络进行加速。
 
 ## 项目结构
 
@@ -36,14 +36,14 @@ ops-gnn/
 - Python 3.9+
 - CMake 3.18+
 - PyTorch 2.7+
-- torch_npu 26.0.0 (PyTorch NPU 扩展)
+- torch_npu 26.0.0 及之后版本 (PyTorch NPU 扩展)
 - CANN Toolkit (AscendC 编译器)
 - C++17 或更高版本编译器
 
 ### CANN 环境配置
 
 ```bash
-source /usr/local/Ascend/cann-9.1.0-beta.1/bin/setenv.bash
+source ${ASCEND_HOME_PATH}/bin/setenv.bash
 ```
 
 ## 安装方法
@@ -52,10 +52,10 @@ source /usr/local/Ascend/cann-9.1.0-beta.1/bin/setenv.bash
 
 ```bash
 # 激活 CANN 环境
-source /usr/local/Ascend/cann-9.1.0-beta.1/bin/setenv.bash
+source ${ASCEND_HOME_PATH}/bin/setenv.bash
 
 # 安装开发模式
-pip install -e .
+pip install --no-build-isolation -e .
 ```
 
 ### 方法2：使用构建脚本
@@ -124,12 +124,6 @@ print(result)  # 输出: tensor([[3, 4], [7, 8]], device='npu:0')
 4. 在 `python/ops_gnn/` 中创建 Python 接口声明文件
 5. 更新 `python/ops_gnn/__init__.py` 导出新函数
 6. 在 `test/` 中添加测试文件
-
-## 参考
-
-- [pytorch_cluster](https://github.com/rusty1s/pytorch_cluster)
-- [PyTorch C++ Extensions](https://pytorch.org/tutorials/advanced/cpp_extension.html)
-- [AscendC Programming Guide](https://www.hiascend.com/document/detail/zh/CANNCommunityEdition/910beta1/developerguide/ascendcdev/ascendcdev_0001.html)
 
 ## 许可证
 

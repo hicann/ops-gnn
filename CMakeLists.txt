@@ -109,38 +109,41 @@ if(WITH_PYTHON)
     if(DEFINED ENV{Python3_ROOT_DIR})
         set(Python3_ROOT_DIR "$ENV{Python3_ROOT_DIR}" CACHE PATH "Python3 root directory")
         message(STATUS "Python3_ROOT_DIR set from environment: ${Python3_ROOT_DIR}")
-
-        execute_process(
-            COMMAND "${Python3_ROOT_DIR}/bin/python3" -c "import sysconfig; print(sysconfig.get_paths()['include'])"
-            OUTPUT_VARIABLE Python3_INCLUDE_DIRS
-            OUTPUT_STRIP_TRAILING_WHITESPACE
-        )
-        execute_process(
-            COMMAND "${Python3_ROOT_DIR}/bin/python3" -c "import sysconfig; print(sysconfig.get_config_var('LIBDIR'))"
-            OUTPUT_VARIABLE Python3_LIBDIR
-            OUTPUT_STRIP_TRAILING_WHITESPACE
-        )
-        execute_process(
-            COMMAND "${Python3_ROOT_DIR}/bin/python3" -c "import sysconfig; print(sysconfig.get_config_var('LDLIBRARY'))"
-            OUTPUT_VARIABLE Python3_LDLIBRARY
-            OUTPUT_STRIP_TRAILING_WHITESPACE
-        )
-        set(Python3_LIBRARIES "${Python3_LIBDIR}/${Python3_LDLIBRARY}")
-        set(Python3_FOUND TRUE)
-
-        add_library(Python3::Python SHARED IMPORTED)
-        set_property(TARGET Python3::Python PROPERTY IMPORTED_LOCATION "${Python3_LIBRARIES}")
-        set_property(TARGET Python3::Python PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${Python3_INCLUDE_DIRS}")
-
-        message(STATUS "Manually detected Python3:")
-        message(STATUS "  Include: ${Python3_INCLUDE_DIRS}")
-        message(STATUS "  Library: ${Python3_LIBRARIES}")
     else()
-        find_package(Python3 COMPONENTS Development QUIET)
-        if(NOT Python3_FOUND)
-            message(FATAL_ERROR "Python3 not found. Please set Python3_ROOT_DIR environment variable.")
-        endif()
+        execute_process(
+            COMMAND python3 -c "import sys; print(sys.prefix)"
+            OUTPUT_VARIABLE Python3_ROOT_DIR
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+        set(Python3_ROOT_DIR "${Python3_ROOT_DIR}" CACHE PATH "Python3 root directory")
+        message(STATUS "Python3_ROOT_DIR auto-detected: ${Python3_ROOT_DIR}")
     endif()
+
+    execute_process(
+        COMMAND "${Python3_ROOT_DIR}/bin/python3" -c "import sysconfig; print(sysconfig.get_paths()['include'])"
+        OUTPUT_VARIABLE Python3_INCLUDE_DIRS
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    execute_process(
+        COMMAND "${Python3_ROOT_DIR}/bin/python3" -c "import sysconfig; print(sysconfig.get_config_var('LIBDIR'))"
+        OUTPUT_VARIABLE Python3_LIBDIR
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    execute_process(
+        COMMAND "${Python3_ROOT_DIR}/bin/python3" -c "import sysconfig; print(sysconfig.get_config_var('LDLIBRARY'))"
+        OUTPUT_VARIABLE Python3_LDLIBRARY
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    set(Python3_LIBRARIES "${Python3_LIBDIR}/${Python3_LDLIBRARY}")
+    set(Python3_FOUND TRUE)
+
+    add_library(Python3::Python SHARED IMPORTED)
+    set_property(TARGET Python3::Python PROPERTY IMPORTED_LOCATION "${Python3_LIBRARIES}")
+    set_property(TARGET Python3::Python PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${Python3_INCLUDE_DIRS}")
+
+    message(STATUS "Manually detected Python3:")
+    message(STATUS "  Include: ${Python3_INCLUDE_DIRS}")
+    message(STATUS "  Library: ${Python3_LIBRARIES}")
 endif()
 
 ###############################################################################
@@ -310,6 +313,13 @@ set_target_properties(_pybind PROPERTIES
     EXPORT_NAME OpsGNN
     LINK_FLAGS "-s"
     LIBRARY_OUTPUT_NAME "_pybind"
+)
+
+add_custom_command(TARGET _pybind POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "$<TARGET_FILE:_pybind>"
+    "${CMAKE_CURRENT_SOURCE_DIR}/python/ops_gnn/_pybind.so"
+    COMMENT "Copying _pybind.so to python/ops_gnn/"
 )
 
 ###############################################################################

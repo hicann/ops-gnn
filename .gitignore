@@ -57,6 +57,8 @@ _deps
 # Build directories
 bld/
 build/
+build_cmake/
+_build/
 _build/
 *.cbp
 *.make
