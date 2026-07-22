@@ -1,3 +1,5 @@
+[English](README_EN.md) | 简体中文
+
 # ops-gnn
 
 ops-gnn 是昇腾生态下针对图神经网络（GNN）推出的一款算子库，支持基于NPU对图神经网络进行加速。
@@ -118,7 +120,7 @@ print(result)  # 输出: tensor([[3, 4], [7, 8]], device='npu:0')
 
 ### 添加新的 NPU 算子
 
-1. 在 `csrc/npu/kernel/<算子名>/` 中创建 AscendC 内核文件（`.cpp`/`.asc`）和头文件（`.h`）
+1. 在 `csrc/npu/kernel/<算子名>/` 中创建 AscendC 内核文件（`.cpp`）和头文件（`.h`）
 2. 在 `csrc/npu/host/<算子名>/` 中创建算子接口实现（`.cpp`）和头文件（`.h`）
 3. 在 `csrc/pybind.cpp` 中添加 PyTorch 绑定
 4. 在 `python/ops_gnn/` 中创建 Python 接口声明文件
