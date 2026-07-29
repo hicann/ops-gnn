@@ -82,7 +82,7 @@ cmake --build .
 
 ops-gnn 采用 PyTorch 扩展 + AscendC 内核的分层架构：
 
-```
+```text
 ┌─────────────────────────────────────────────┐
 │              Python 接口层                   │
 │   python/ops_gnn/<op>.py                    │
@@ -111,7 +111,7 @@ ops-gnn 采用 PyTorch 扩展 + AscendC 内核的分层架构：
 
 ### 2.2 目录结构
 
-```
+```text
 ops-gnn
 ├── csrc/                           # C++/AscendC 源码目录
 │   ├── pybind.cpp                  # PyTorch 绑定代码
@@ -175,6 +175,7 @@ ops-gnn
 ### 3.1 命名规范
 
 **C++ 层：**
+
 - 文件名：小写下划线分隔，如 `segment_max_csr_kernel.h`
 - 函数名：大驼峰，如 `LaunchSegmentMaxCsrKernel`
 - 结构体名：大驼峰，如 `SegmentMaxCsrTilingData`
@@ -182,6 +183,7 @@ ops-gnn
 - 模板参数：大驼峰或单字母大写，如 `typename T`
 
 **Python 层：**
+
 - 文件名：小写下划线分隔，如 `segment_max_csr.py`
 - 函数名：小写下划线分隔，如 `segment_max_csr`
 - 与 PyTorch 风格保持一致
@@ -198,7 +200,7 @@ ops-gnn
 
 每个算子严格遵循以下文件拆分：
 
-```
+```text
 csrc/npu/
 ├── host/<op>/
 │   ├── <op>.h          # Host 接口声明
@@ -268,7 +270,7 @@ pytest test/test_segment_max_csr.py::test_func -v  # 单个测试用例
 
 ### 6.1 调用链分析
 
-```
+```text
 用户代码
     └─→ ops_gnn.segment_max_csr(src, indptr, optional_out)
             │  python/ops_gnn/segment_max_csr.py
@@ -299,7 +301,7 @@ pytest test/test_segment_max_csr.py::test_func -v  # 单个测试用例
 
 以 `segment_max_csr` 为模板，每个新算子需创建：
 
-```
+```text
 csrc/npu/host/<op>/
 ├── <op>.h                   # torch::Tensor <op>(torch::Tensor ...);
 └── <op>.cpp                 # Host 实现
@@ -318,6 +320,7 @@ test/
 ```
 
 此外需修改两个文件：
+
 - `csrc/pybind.cpp`：`#include "host/<op>/<op>.h"` + `m.def("<op>", ...)`
 - `python/ops_gnn/__init__.py`：`from .<op> import <op>` + 加入 `__all__`
 

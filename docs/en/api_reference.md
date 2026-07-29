@@ -128,7 +128,7 @@ Performs segmented max reduction on `src` along the dimension specified by CSR f
 
 **Call Chain:**
 
-```
+```text
 ops_gnn.segment_max_csr(src, indptr, optional_out)
     → _pybind.segment_max_csr()           # PyTorch binding
         → segment_max_csr()                # Host: dimension parsing, Tiling fill, dtype dispatch

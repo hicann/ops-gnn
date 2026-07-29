@@ -128,7 +128,7 @@ def segment_max_csr(
 
 **调用链：**
 
-```
+```test
 ops_gnn.segment_max_csr(src, indptr, optional_out)
     → _pybind.segment_max_csr()           # PyTorch 绑定
         → segment_max_csr()                # Host 端：维度解析、Tiling 填充、dtype 分发
@@ -293,4 +293,4 @@ def test_my_operator():
 ## 四、返回主文档
 
 - **[返回 README](../../README.md)**
-- **[查看开发指导](开发指导.md)**
+- **[查看开发指导](development_guide.md)**

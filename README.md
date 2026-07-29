@@ -1,12 +1,12 @@
-[English](README_EN.md) | 简体中文
-
 # ops-gnn
+
+[English](README_EN.md) | 简体中文
 
 ops-gnn 是昇腾生态下针对图神经网络（GNN）推出的一款算子库，支持基于NPU对图神经网络进行加速。
 
 ## 项目结构
 
-```
+```text
 ops-gnn/
 ├── csrc/                       # C++/AscendC源码目录
 │   ├── pybind.cpp              # PyTorch绑定代码

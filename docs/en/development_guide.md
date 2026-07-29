@@ -82,7 +82,7 @@ cmake --build .
 
 ops-gnn adopts a layered architecture of PyTorch extension + AscendC kernel:
 
-```
+```text
 +---------------------------------------------+
 |              Python Interface Layer           |
 |   python/ops_gnn/<op>.py                    |
@@ -114,7 +114,7 @@ ops-gnn adopts a layered architecture of PyTorch extension + AscendC kernel:
 
 ### 2.2 Directory Structure
 
-```
+```text
 ops-gnn
 ├── csrc/                           # C++/AscendC source code
 │   ├── pybind.cpp                  # PyTorch binding code
@@ -178,6 +178,7 @@ ops-gnn
 ### 3.1 Naming Conventions
 
 **C++ Layer:**
+
 - File names: lowercase underscore-separated, e.g., `segment_max_csr_kernel.h`
 - Function names: PascalCase, e.g., `LaunchSegmentMaxCsrKernel`
 - Struct names: PascalCase, e.g., `SegmentMaxCsrTilingData`
@@ -185,6 +186,7 @@ ops-gnn
 - Template parameters: PascalCase or single uppercase letter, e.g., `typename T`
 
 **Python Layer:**
+
 - File names: lowercase underscore-separated, e.g., `segment_max_csr.py`
 - Function names: lowercase underscore-separated, e.g., `segment_max_csr`
 - Consistent with PyTorch style
@@ -201,7 +203,7 @@ ops-gnn
 
 Each operator strictly follows the following file split:
 
-```
+```text
 csrc/npu/
 ├── host/<op>/
 │   ├── <op>.h          # Host interface declaration
@@ -271,7 +273,7 @@ This section uses `segment_max_csr` as an example to illustrate the operator dev
 
 ### 6.1 Call Chain Analysis
 
-```
+```text
 User Code
     └─→ ops_gnn.segment_max_csr(src, indptr, optional_out)
             │  python/ops_gnn/segment_max_csr.py
@@ -302,7 +304,7 @@ Each layer's responsibilities:
 
 Using `segment_max_csr` as a template, each new operator needs:
 
-```
+```text
 csrc/npu/host/<op>/
 ├── <op>.h                   # torch::Tensor <op>(torch::Tensor ...);
 └── <op>.cpp                 # Host implementation
@@ -321,6 +323,7 @@ test/
 ```
 
 Additionally, two files must be modified:
+
 - `csrc/pybind.cpp`: `#include "host/<op>/<op>.h"` + `m.def("<op>", ...)`
 - `python/ops_gnn/__init__.py`: `from .<op> import <op>` + add to `__all__`
 
