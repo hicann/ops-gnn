@@ -72,7 +72,8 @@ import torch
 import ops_gnn
 
 # 设置 NPU 设备
-torch.npu.set_device(4)
+device_id = int(os.environ.get("NPU_DEVICE_ID", 0))
+torch.npu.set_device(device_id)
 torch.manual_seed(42)
 
 # 创建输入 Tensor（NPU 设备）
@@ -161,7 +162,8 @@ ops_gnn.segment_max_csr(src, indptr, optional_out)
 import torch
 import ops_gnn
 
-torch.npu.set_device(4)
+device_id = int(os.environ.get("NPU_DEVICE_ID", 0))
+torch.npu.set_device(device_id)
 torch.manual_seed(42)
 
 # 创建输入数据
@@ -273,7 +275,8 @@ import ops_gnn
 
 def test_my_operator():
     """测试基本功能"""
-    torch.npu.set_device(4)          # 1. 指定 NPU 设备
+    device_id = int(os.environ.get("NPU_DEVICE_ID", 0))
+    torch.npu.set_device(device_id)          # 1. 指定 NPU 设备
     torch.manual_seed(42)            # 2. 设置随机种子
 
     # 3. 创建 NPU Tensor

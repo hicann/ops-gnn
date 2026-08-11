@@ -247,7 +247,7 @@ pytest test/test_segment_max_csr.py::test_func -v  # 单个测试用例
 
 ### 5.2 测试编写模式
 
-1. `torch.npu.set_device(4)` 指定 NPU 设备
+1. `torch.npu.set_device(int(os.environ.get("NPU_DEVICE_ID", 0)))` 指定 NPU 设备
 2. `torch.manual_seed(42)` 保证可复现
 3. 用 `.npu()` 方法创建 NPU Tensor（如 `torch.randint(...).npu()`）
 4. 调用 `ops_gnn.<op>(...)` 

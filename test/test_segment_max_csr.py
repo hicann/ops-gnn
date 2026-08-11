@@ -8,6 +8,7 @@ INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A
 See LICENSE in the root of the software repository for the full text of the License.
 """
 
+import os
 import pytest
 import torch
 import ops_gnn
@@ -49,7 +50,8 @@ def segment_max_csr_cpu(src, indptr):
 
 def test_segment_max_csr_basic():
     """测试基本功能 - 1D indptr，沿 dim 0 分段"""
-    torch.npu.set_device(4)
+    device_id = int(os.environ.get("NPU_DEVICE_ID", 0))
+    torch.npu.set_device(device_id)
     torch.manual_seed(42)
     
     src = torch.tensor([[1, 2], [3, 4], [5, 6], [7, 8]], dtype=torch.float32, device='npu')
@@ -66,7 +68,8 @@ def test_segment_max_csr_basic():
 
 def test_segment_max_csr_1d_simple():
     """测试简单的1D场景"""
-    torch.npu.set_device(4)
+    device_id = int(os.environ.get("NPU_DEVICE_ID", 0))
+    torch.npu.set_device(device_id)
     
     src = torch.tensor([1, 3, 2, 5, 4], dtype=torch.float32, device='npu')
     indptr = torch.tensor([0, 2, 5], dtype=torch.int32, device='npu')
@@ -82,7 +85,8 @@ def test_segment_max_csr_1d_simple():
 
 def test_segment_max_csr_float16():
     """测试float16数据类型"""
-    torch.npu.set_device(4)
+    device_id = int(os.environ.get("NPU_DEVICE_ID", 0))
+    torch.npu.set_device(device_id)
     torch.manual_seed(42)
     
     src = torch.tensor([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [7.0, 8.0]], dtype=torch.float16, device='npu')
@@ -99,7 +103,8 @@ def test_segment_max_csr_float16():
 
 def test_segment_max_csr_int32():
     """测试int32数据类型"""
-    torch.npu.set_device(4)
+    device_id = int(os.environ.get("NPU_DEVICE_ID", 0))
+    torch.npu.set_device(device_id)
     torch.manual_seed(42)
     
     src = torch.tensor([[1, 2], [3, 4], [5, 6], [7, 8]], dtype=torch.int32, device='npu')
@@ -116,7 +121,8 @@ def test_segment_max_csr_int32():
 
 def test_segment_max_csr_empty_segment():
     """测试空segment"""
-    torch.npu.set_device(4)
+    device_id = int(os.environ.get("NPU_DEVICE_ID", 0))
+    torch.npu.set_device(device_id)
     torch.manual_seed(42)
     
     src = torch.tensor([[1, 2], [3, 4], [5, 6], [7, 8]], dtype=torch.float32, device='npu')
@@ -134,7 +140,8 @@ def test_segment_max_csr_empty_segment():
 
 def test_segment_max_csr_with_optional_out():
     """测试带有optional_out参数"""
-    torch.npu.set_device(4)
+    device_id = int(os.environ.get("NPU_DEVICE_ID", 0))
+    torch.npu.set_device(device_id)
     torch.manual_seed(42)
     
     src = torch.tensor([[1, 2], [3, 4], [5, 6], [7, 8]], dtype=torch.float32, device='npu')
@@ -152,7 +159,8 @@ def test_segment_max_csr_with_optional_out():
 
 def test_segment_max_csr_2d_indptr():
     """测试2D indptr（沿dim 1分段，每个batch有不同的分段）"""
-    torch.npu.set_device(4)
+    device_id = int(os.environ.get("NPU_DEVICE_ID", 0))
+    torch.npu.set_device(device_id)
     torch.manual_seed(42)
     
     src = torch.tensor([[1, 2, 3, 4], [5, 6, 7, 8]], dtype=torch.float32, device='npu')
@@ -169,7 +177,8 @@ def test_segment_max_csr_2d_indptr():
 
 def test_segment_max_csr_broadcast():
     """测试indptr广播（1D indptr广播到多个batch）"""
-    torch.npu.set_device(4)
+    device_id = int(os.environ.get("NPU_DEVICE_ID", 0))
+    torch.npu.set_device(device_id)
     torch.manual_seed(42)
     
     src = torch.tensor([[1, 2, 3, 4], [5, 6, 7, 8]], dtype=torch.float32, device='npu')
@@ -186,7 +195,8 @@ def test_segment_max_csr_broadcast():
 
 def test_segment_max_csr_large():
     """测试较大规模数据"""
-    torch.npu.set_device(4)
+    device_id = int(os.environ.get("NPU_DEVICE_ID", 0))
+    torch.npu.set_device(device_id)
     torch.manual_seed(42)
     
     src = torch.randn(128, 64, dtype=torch.float32, device='npu')
@@ -203,7 +213,8 @@ def test_segment_max_csr_large():
 
 def test_segment_max_csr_complex_shape():
     """测试复杂shape（3D src, 2D indptr）"""
-    torch.npu.set_device(4)
+    device_id = int(os.environ.get("NPU_DEVICE_ID", 0))
+    torch.npu.set_device(device_id)
     torch.manual_seed(42)
     
     src = torch.randn(3, 8, 16, dtype=torch.float32, device='npu')

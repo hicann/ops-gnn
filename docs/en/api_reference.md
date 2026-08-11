@@ -72,7 +72,8 @@ import torch
 import ops_gnn
 
 # Set NPU device
-torch.npu.set_device(4)
+device_id = int(os.environ.get("NPU_DEVICE_ID", 0))
+torch.npu.set_device(device_id)
 torch.manual_seed(42)
 
 # Create input Tensors (NPU device)
@@ -161,7 +162,8 @@ ops_gnn.segment_max_csr(src, indptr, optional_out)
 import torch
 import ops_gnn
 
-torch.npu.set_device(4)
+device_id = int(os.environ.get("NPU_DEVICE_ID", 0))
+torch.npu.set_device(device_id)
 torch.manual_seed(42)
 
 # Create input data
@@ -273,7 +275,8 @@ import ops_gnn
 
 def test_my_operator():
     """Test basic functionality"""
-    torch.npu.set_device(4)          # 1. Set NPU device
+    device_id = int(os.environ.get("NPU_DEVICE_ID", 0))
+    torch.npu.set_device(device_id)          # 1. Set NPU device
     torch.manual_seed(42)            # 2. Set random seed
 
     # 3. Create NPU Tensor

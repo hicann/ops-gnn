@@ -250,7 +250,7 @@ pytest test/test_segment_max_csr.py::test_func -v  # Single test case
 
 ### 5.2 Test Writing Pattern
 
-1. `torch.npu.set_device(4)` to specify NPU device
+1. `torch.npu.set_device(int(os.environ.get("NPU_DEVICE_ID", 0)))` to specify NPU device
 2. `torch.manual_seed(42)` for reproducibility
 3. Use `.npu()` method to create NPU Tensor (e.g., `torch.randint(...).npu()`)
 4. Call `ops_gnn.<op>(...)`
