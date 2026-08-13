@@ -15,6 +15,7 @@ def test_import():
     """测试基本导入"""
     import ops_gnn
     assert hasattr(ops_gnn, 'add_sample')
+    assert hasattr(ops_gnn, 'graclus_cluster')
 
 
 def test_version():

@@ -179,6 +179,20 @@ find_package(Torch REQUIRED)
 
 message(STATUS "Found PyTorch: ${TORCH_INSTALL_PREFIX}")
 
+execute_process(
+    COMMAND python3 -c "import torch_npu, os; print(os.path.dirname(torch_npu.__file__))"
+    OUTPUT_VARIABLE TORCH_NPU_INSTALL_PREFIX
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET
+)
+
+if(NOT TORCH_NPU_INSTALL_PREFIX)
+    message(FATAL_ERROR "torch_npu is required when building ops_gnn NPU extension")
+endif()
+set(TORCH_NPU_INCLUDE_DIR "${TORCH_NPU_INSTALL_PREFIX}/include")
+set(TORCH_NPU_LIBRARY_DIR "${TORCH_NPU_INSTALL_PREFIX}/lib")
+message(STATUS "Found Torch NPU: ${TORCH_NPU_INSTALL_PREFIX}")
+
 ###############################################################################
 # Source Files
 ###############################################################################
@@ -289,6 +303,7 @@ target_include_directories(_pybind PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/csrc/npu/kernel
     ${TORCH_INCLUDE_DIRS}
     ${TORCH_INCLUDE_DIRS}/pybind11
+    ${TORCH_NPU_INCLUDE_DIR}
 )
 
 if(WITH_PYTHON)
@@ -299,7 +314,13 @@ endif()
 target_link_libraries(_pybind PRIVATE
     ${TORCH_LIBRARIES}
     ${TORCH_INSTALL_PREFIX}/lib/libtorch_python.so
+    ${TORCH_NPU_LIBRARY_DIR}/libtorch_npu.so
 )
+
+if(TORCH_NPU_LIBRARY_DIR)
+    target_link_directories(_pybind PRIVATE ${TORCH_NPU_LIBRARY_DIR})
+    target_link_options(_pybind PRIVATE "-Wl,-rpath,${TORCH_NPU_LIBRARY_DIR}")
+endif()
 
 target_link_directories(_pybind PRIVATE ${ASCEND_LINK_DIRS})
 target_link_libraries(_pybind PRIVATE ${ASCEND_LIBRARIES})

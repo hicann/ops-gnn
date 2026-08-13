@@ -16,6 +16,7 @@ except ImportError:
     torch_npu = None
 
 from .add_sample import add_sample
+from .graclus_cluster import graclus_cluster
 from .segment_max_csr import segment_max_csr
 from .typing import Tensor, OptTensor
 
@@ -23,6 +24,7 @@ __version__ = '0.1.0'
 
 __all__ = [
     'add_sample',
+    'graclus_cluster',
     'segment_max_csr',
     'Tensor',
     'OptTensor',

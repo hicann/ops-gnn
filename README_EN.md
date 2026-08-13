@@ -115,6 +115,7 @@ print(result)  # output: tensor([[3, 4], [7, 8]], device='npu:0')
 |----------|-------------|----------------|
 | `add_sample` | Element-wise addition of two tensors | NPU |
 | `segment_max_csr` | Segmented max reduction on CSR format | NPU |
+| `graclus_cluster` | Greedy graph clustering | NPU / CPU fallback for float64 |
 
 ## Development Guide
 

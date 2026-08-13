@@ -250,6 +250,45 @@ result = ops_gnn.segment_max_csr(src, indptr)
 
 ---
 
+### 2.3 图贪心聚类接口
+
+**函数签名：**
+
+```python
+def graclus_cluster(
+    row: Tensor,
+    col: Tensor,
+    weight: Optional[Tensor] = None,
+    num_nodes: Optional[int] = None,
+) -> Tensor:
+```
+
+**参数说明：**
+
+| 参数 | 类型 | 输入/输出 | 说明 |
+|------|------|-----------|------|
+| row | Tensor | 输入 | COO 源节点索引，dtype 为 `torch.long` |
+| col | Tensor | 输入 | COO 目标节点索引，dtype 为 `torch.long` |
+| weight | Optional[Tensor] | 输入 | 可选边权，float16/bfloat16/float32 走 NPU 路径，float64 走 CPU 回退语义 |
+| num_nodes | Optional[int] | 输入 | 节点数量；默认从 row/col 推断 |
+
+**返回值说明：**
+
+返回 `torch.long` Tensor，shape 为 `[num_nodes]`，每个元素为对应节点的 cluster ID。
+
+**功能说明：**
+
+Python 层复现 `torch_cluster.graclus_cluster` 预处理：推断 `num_nodes`、去除自环、无 weight 时随机打乱边顺序、按 row 排序并转 CSR。NPU L1 路径随后调用 Ascend C kernel 按随机节点顺序执行图贪心匹配：有 weight 时选择未标记邻居中权重最大的节点配对，无 weight 时选择第一个未标记邻居。float64 weight 按任务书 L2 口径使用 CPU 回退语义。
+
+**注意事项：**
+
+- `row` / `col` 必须为 1D `torch.long` Tensor。
+- `row` / `col` / `weight` 必须位于同一设备。
+- 算法包含随机性；固定 `torch.manual_seed` 后结果可复现。
+- 自环会在 Python 层去除。
+
+---
+
 ## 三、测试指南
 
 ### 3.1 运行测试
@@ -261,6 +300,7 @@ pytest test/ -v
 # 运行单个算子测试
 pytest test/test_example.py -v
 pytest test/test_segment_max_csr.py -v
+pytest test/graclus_cluster/test_graclus_functional.py -v
 
 # 运行单个测试用例
 pytest test/test_segment_max_csr.py::test_segment_max_csr_basic -v

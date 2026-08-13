@@ -250,6 +250,70 @@ result = ops_gnn.segment_max_csr(src, indptr)
 
 ---
 
+### 2.3 graclus_cluster - Greedy Graph Clustering
+
+**Function Signature:**
+
+```python
+def graclus_cluster(
+    row: Tensor,
+    col: Tensor,
+    weight: Optional[Tensor] = None,
+    num_nodes: Optional[int] = None,
+) -> Tensor:
+```
+
+**Parameters:**
+
+| Parameter | Type | I/O | Description |
+|-----------|------|-----|-------------|
+| row | Tensor | Input | COO source node indices, dtype must be `torch.long` |
+| col | Tensor | Input | COO target node indices, dtype must be `torch.long` |
+| weight | Optional[Tensor] | Input | Optional edge weights. float16, bfloat16, and float32 use the NPU path; float64 uses CPU fallback semantics |
+| num_nodes | Optional[int] | Input | Number of nodes. If omitted, it is inferred from `row` and `col` |
+
+**Return Value:**
+
+Returns a `torch.long` Tensor with shape `[num_nodes]`. Each element is the cluster ID of the corresponding node.
+
+**Description:**
+
+Implements the greedy graph clustering semantics of `torch_cluster.graclus_cluster`. The Python layer infers `num_nodes`, removes self-loops, shuffles edges when `weight` is absent, sorts edges by row, and converts COO to CSR. The NPU path launches an Ascend C kernel to visit nodes in random order and greedily match each unmarked node with an unmarked neighbor. When `weight` is provided, the neighbor with maximum weight is selected; otherwise the first unmarked neighbor is selected.
+
+**Implementation Architecture:**
+
+- **Kernel Mode**: Ascend C kernel implementation with host-side launch wrapper
+- **Data Layout**: COO inputs are preprocessed to CSR row pointer and sorted column tensors
+- **Parallelism**: The NPU path processes the CSR adjacency and writes one cluster ID per node
+
+**Notes:**
+
+- `row` and `col` must be 1D `torch.long` tensors
+- `row`, `col`, and `weight` must be on the same device
+- The algorithm contains randomness; set `torch.manual_seed` before calling the operator when reproducible output is required
+- Self-loops are removed before clustering
+- float64 weights follow the task-book L2 CPU fallback semantics
+
+**Usage Example:**
+
+```python
+import torch
+import ops_gnn
+
+torch.npu.set_device(4)
+torch.manual_seed(42)
+
+row = torch.tensor([0, 1, 1, 2], dtype=torch.long, device="npu")
+col = torch.tensor([1, 0, 2, 1], dtype=torch.long, device="npu")
+weight = torch.tensor([0.5, 0.5, 1.0, 1.0], dtype=torch.float32, device="npu")
+
+cluster = ops_gnn.graclus_cluster(row, col, weight, num_nodes=3)
+assert cluster.device.type == "npu"
+assert cluster.shape == (3,)
+```
+
+---
+
 ## 3. Testing Guide
 
 ### 3.1 Running Tests
@@ -261,6 +325,7 @@ pytest test/ -v
 # Run single operator test
 pytest test/test_example.py -v
 pytest test/test_segment_max_csr.py -v
+pytest test/graclus_cluster/test_graclus_functional.py -v
 
 # Run single test case
 pytest test/test_segment_max_csr.py::test_segment_max_csr_basic -v

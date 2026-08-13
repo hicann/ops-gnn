@@ -115,6 +115,7 @@ print(result)  # 输出: tensor([[3, 4], [7, 8]], device='npu:0')
 |------|------|----------|
 | `add_sample` | 两个 tensor 逐元素相加 | NPU |
 | `segment_max_csr` | CSR 格式的分段最大值运算 | NPU |
+| `graclus_cluster` | 图贪心聚类 | NPU / CPU float64 回退 |
 
 ## 开发指南
 
