@@ -10,11 +10,17 @@
 
 #include <torch/extension.h>
 #include "host/add_sample/add_sample.h"
+#include "host/random_walk/random_walk.h"
 #include "host/segment_max_csr/segment_max_csr.h"
 #include "host/graclus_cluster/graclus_cluster.h"
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.doc() = "ops_gnn: NPU extension";
+    m.def("random_walk", &random_walk_npu,
+          py::arg("rowptr"), py::arg("col"), py::arg("start"), py::arg("walk_length"),
+          py::arg("p") = 1.0, py::arg("q") = 1.0, py::arg("return_edge_indices") = false,
+          py::arg("neighbors_sorted") = true,
+          "Random walk on a CSR graph (NPU)");
     m.def("add_sample", &add_sample, py::arg("src1"), py::arg("src2"), "两个tensor逐元素相加(NPU)");
     m.def("segment_max_csr", &segment_max_csr, py::arg("src"), py::arg("indptr"),
           py::arg("optional_out") = torch::Tensor(), "Segment max csr(NPU)");

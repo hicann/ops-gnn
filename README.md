@@ -18,6 +18,7 @@ ops-gnn/
 │   └── ops_gnn/                # Python包目录
 │       ├── __init__.py         # 包初始化文件
 │       ├── add_sample.py       # Python接口声明
+│       ├── random_walk.py      # 随机游走 Python 接口
 │       ├── segment_max_csr.py  # Python接口声明
 │       └── typing.py           # 类型定义
 ├── test/                       # 测试目录
@@ -114,6 +115,7 @@ print(result)  # 输出: tensor([[3, 4], [7, 8]], device='npu:0')
 | 算子 | 功能 | 设备支持 |
 |------|------|----------|
 | `add_sample` | 两个 tensor 逐元素相加 | NPU |
+| `random_walk` | COO 图上的均匀或 node2vec 偏置随机游走 | NPU |
 | `segment_max_csr` | CSR 格式的分段最大值运算 | NPU |
 | `graclus_cluster` | 图贪心聚类 | NPU / CPU float64 回退 |
 

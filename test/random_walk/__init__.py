@@ -6,28 +6,6 @@ Please refer to the License for details. You may not use this file except in com
 THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
 INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 See LICENSE in the root of the software repository for the full text of the License.
+
+Functional, golden and benchmark coverage for ``ops_gnn.random_walk``.
 """
-
-import torch
-
-try:
-    import torch_npu
-except ImportError:
-    torch_npu = None
-
-from .add_sample import add_sample
-from .graclus_cluster import graclus_cluster
-from .random_walk import random_walk
-from .segment_max_csr import segment_max_csr
-from .typing import Tensor, OptTensor
-
-__version__ = '0.1.0'
-
-__all__ = [
-    'add_sample',
-    'graclus_cluster',
-    'random_walk',
-    'segment_max_csr',
-    'Tensor',
-    'OptTensor',
-]

@@ -314,6 +314,89 @@ assert cluster.shape == (3,)
 
 ---
 
+### 2.4 random_walk — NPU Random Walk
+
+**Function Signature:**
+
+```python
+def random_walk(
+    row: Tensor,
+    col: Tensor,
+    start: Tensor,
+    walk_length: int,
+    p: float = 1,
+    q: float = 1,
+    coalesced: bool = True,
+    num_nodes: Optional[int] = None,
+    return_edge_indices: bool = False,
+) -> Union[Tensor, Tuple[Tensor, Tensor]]:
+```
+
+**Parameters:**
+
+| Parameter | Type | I/O | Description |
+|-----------|------|-----|-------------|
+| row | Tensor | Input | COO source nodes, a 1D `torch.int64` NPU Tensor |
+| col | Tensor | Input | COO destination nodes, a 1D `torch.int64` NPU Tensor with the same length as `row` |
+| start | Tensor | Input | Walk starting nodes, a 1D `torch.int64` NPU Tensor |
+| walk_length | int | Input | Number of walk steps; must be non-negative |
+| p | float | Input | node2vec return parameter; must be finite and greater than zero |
+| q | float | Input | node2vec BFS/DFS parameter; must be finite and greater than zero |
+| coalesced | bool | Input | Sorts edges by `(row, col)` when True; when False, edges must already be grouped by source node |
+| num_nodes | Optional[int] | Input | Number of nodes; inferred from the maxima of `row`, `col`, and `start` when None |
+| return_edge_indices | bool | Input | Whether to return the edge position selected at each step |
+
+**Return Value:**
+
+Returns `node_seq`, a `torch.int64` Tensor with shape `[S, walk_length + 1]`.
+When `return_edge_indices=True`, returns `(node_seq, edge_seq)`, where `edge_seq`
+is a `torch.int64` Tensor with shape `[S, walk_length]`. An isolated node remains
+unchanged and its corresponding `edge_seq` value is `-1`.
+
+**Description:**
+
+Runs uniform or node2vec-biased random walks from multiple starting nodes on a
+COO graph. The Python layer sorts the COO edges and builds CSR data on NPU. An
+Ascend 950 SIMT kernel performs uniform sampling when `p=1, q=1`; otherwise it
+uses rejection sampling with node2vec transition probabilities.
+
+**Implementation Architecture:**
+
+- **Python preprocessing**: argument validation, COO sorting, degree counting, and CSR `rowptr` construction
+- **Host layer**: obtains the current PyTorch NPU stream and Philox seed/offset, then calculates integer node2vec thresholds
+- **Kernel mode**: Ascend C SIMT, with one thread processing one walk
+- **Output path**: skips edge-sequence writes when `return_edge_indices=False`
+
+**Notes:**
+
+- `row`, `col`, and `start` must be on the same NPU device, with `0 <= index < num_nodes`
+- `coalesced=False` does not reorder edges; input edges must already be grouped by source node
+- With sorting enabled, edge indices refer to positions in the sorted COO/CSR representation
+- The total edge count and the degree of each node must not exceed `2^32-1`
+- Only forward computation is supported; use `torch.manual_seed(seed)` to seed the default NPU Generator
+
+**Usage Example:**
+
+```python
+import torch
+import ops_gnn
+
+device = "npu:0"
+row = torch.tensor([0, 1, 1, 2], dtype=torch.int64, device=device)
+col = torch.tensor([1, 0, 2, 1], dtype=torch.int64, device=device)
+start = torch.tensor([0, 2], dtype=torch.int64, device=device)
+
+torch.manual_seed(202608)
+nodes, edges = ops_gnn.random_walk(
+    row, col, start, walk_length=8, p=0.5, q=2.0,
+    return_edge_indices=True,
+)
+assert nodes.shape == (2, 9)
+assert edges.shape == (2, 8)
+```
+
+---
+
 ## 3. Testing Guide
 
 ### 3.1 Running Tests
@@ -326,6 +409,10 @@ pytest test/ -v
 pytest test/test_example.py -v
 pytest test/test_segment_max_csr.py -v
 pytest test/graclus_cluster/test_graclus_functional.py -v
+pytest test/random_walk -v
+
+# Run the random_walk performance benchmark
+python test/random_walk/benchmark.py --device npu:0
 
 # Run single test case
 pytest test/test_segment_max_csr.py::test_segment_max_csr_basic -v

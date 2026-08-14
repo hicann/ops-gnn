@@ -18,6 +18,7 @@ ops-gnn/
 │   └── ops_gnn/                # Python package
 │       ├── __init__.py         # Package initialization
 │       ├── add_sample.py       # Python interface declaration
+│       ├── random_walk.py      # Random-walk Python interface
 │       ├── segment_max_csr.py  # Python interface declaration
 │       └── typing.py           # Type definitions
 ├── test/                       # Test directory
@@ -114,6 +115,7 @@ print(result)  # output: tensor([[3, 4], [7, 8]], device='npu:0')
 | Operator | Description | Device Support |
 |----------|-------------|----------------|
 | `add_sample` | Element-wise addition of two tensors | NPU |
+| `random_walk` | Uniform or node2vec-biased random walks on COO graphs | NPU |
 | `segment_max_csr` | Segmented max reduction on CSR format | NPU |
 | `graclus_cluster` | Greedy graph clustering | NPU / CPU fallback for float64 |
 

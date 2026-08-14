@@ -289,6 +289,88 @@ Python 层复现 `torch_cluster.graclus_cluster` 预处理：推断 `num_nodes`�
 
 ---
 
+### 2.4 random_walk — NPU 随机游走
+
+**函数签名：**
+
+```python
+def random_walk(
+    row: Tensor,
+    col: Tensor,
+    start: Tensor,
+    walk_length: int,
+    p: float = 1,
+    q: float = 1,
+    coalesced: bool = True,
+    num_nodes: Optional[int] = None,
+    return_edge_indices: bool = False,
+) -> Union[Tensor, Tuple[Tensor, Tensor]]:
+```
+
+**参数说明：**
+
+| 参数 | 类型 | 输入/输出 | 说明 |
+|------|------|-----------|------|
+| row | Tensor | 输入 | COO 源节点，一维 `torch.int64` NPU Tensor |
+| col | Tensor | 输入 | COO 目标节点，一维 `torch.int64` NPU Tensor，与 `row` 等长 |
+| start | Tensor | 输入 | 游走起点，一维 `torch.int64` NPU Tensor |
+| walk_length | int | 输入 | 游走步数，必须大于等于 0 |
+| p | float | 输入 | node2vec 返回参数，必须有限且大于 0 |
+| q | float | 输入 | node2vec BFS/DFS 参数，必须有限且大于 0 |
+| coalesced | bool | 输入 | 为 True 时按 `(row, col)` 排序；为 False 时输入边须已按源节点分组 |
+| num_nodes | Optional[int] | 输入 | 节点数；为 None 时由 `row`、`col`、`start` 的最大值推导 |
+| return_edge_indices | bool | 输入 | 是否同时返回每一步的边位置 |
+
+**返回值说明：**
+
+返回 `node_seq`，其 dtype 为 `torch.int64`，shape 为 `[S, walk_length + 1]`。
+当 `return_edge_indices=True` 时返回 `(node_seq, edge_seq)`，其中 `edge_seq` 的
+dtype 为 `torch.int64`，shape 为 `[S, walk_length]`。孤立节点保持当前节点，
+对应的 `edge_seq` 值为 `-1`。
+
+**功能说明：**
+
+从 COO 图上的多个起点执行均匀或 node2vec 偏置随机游走。Python 层在 NPU 上完成
+COO 排序和 CSR 构造；Ascend 950 SIMT kernel 负责采样。当 `p=1, q=1` 时使用均匀
+采样路径，否则按照 node2vec 转移概率执行拒绝采样。
+
+**实现架构：**
+
+- **Python 预处理**：参数校验、COO 排序、degree 统计及 CSR `rowptr` 构造
+- **Host 层**：获取当前 PyTorch NPU stream 和 Philox seed/offset，计算 node2vec 整数门限
+- **Kernel 模式**：Ascend C SIMT，每个线程负责一条 walk
+- **输出路径**：`return_edge_indices=False` 时不写边序列
+
+**注意事项：**
+
+- `row`、`col`、`start` 必须位于同一 NPU 设备，节点编号满足 `0 <= index < num_nodes`
+- `coalesced=False` 不会重新排列输入，边必须已经按源节点分组
+- 排序开启时，edge index 对应排序后的 COO/CSR 位置
+- 总边数及单节点出度不超过 `2^32-1`
+- 仅支持前向计算；可使用 `torch.manual_seed(seed)` 固定 NPU 默认 Generator
+
+**使用示例：**
+
+```python
+import torch
+import ops_gnn
+
+device = "npu:0"
+row = torch.tensor([0, 1, 1, 2], dtype=torch.int64, device=device)
+col = torch.tensor([1, 0, 2, 1], dtype=torch.int64, device=device)
+start = torch.tensor([0, 2], dtype=torch.int64, device=device)
+
+torch.manual_seed(202608)
+nodes, edges = ops_gnn.random_walk(
+    row, col, start, walk_length=8, p=0.5, q=2.0,
+    return_edge_indices=True,
+)
+assert nodes.shape == (2, 9)
+assert edges.shape == (2, 8)
+```
+
+---
+
 ## 三、测试指南
 
 ### 3.1 运行测试
@@ -301,6 +383,10 @@ pytest test/ -v
 pytest test/test_example.py -v
 pytest test/test_segment_max_csr.py -v
 pytest test/graclus_cluster/test_graclus_functional.py -v
+pytest test/random_walk -v
+
+# 运行 random_walk 性能测试
+python test/random_walk/benchmark.py --device npu:0
 
 # 运行单个测试用例
 pytest test/test_segment_max_csr.py::test_segment_max_csr_basic -v
