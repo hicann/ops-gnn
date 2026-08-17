@@ -542,7 +542,7 @@ pytest test/ -v
 
 # Run single operator test
 pytest test/test_example.py -v
-pytest test/test_segment_max_csr.py -v
+pytest test/segment_max_csr/test_segment_max_csr.py -v
 pytest test/graclus_cluster/test_graclus_functional.py -v
 python -m pytest test/gather_coo/test_gather_coo_functional.py -v
 pytest test/random_walk -v
@@ -552,7 +552,7 @@ pytest test/sparse -v
 python test/random_walk/benchmark.py --device npu:0
 
 # Run single test case
-pytest test/test_segment_max_csr.py::test_segment_max_csr_basic -v
+pytest test/segment_max_csr/test_segment_max_csr.py::test_segment_max_csr_basic -v
 ```
 
 ### 3.2 Test Writing Template

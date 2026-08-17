@@ -34,7 +34,6 @@ ops-gnn/
 │       ├── segment_max_csr.py  # Python interface declaration
 │       └── typing.py           # Type definitions
 ├── test/                       # Test directory
-├── gather_coo/                 # Gather COO delivery notes
 ├── scripts/                    # Build scripts
 │   └── build.sh                # Unified build script
 ├── cmake/                      # CMake configuration

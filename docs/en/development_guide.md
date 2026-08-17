@@ -256,8 +256,8 @@ Key CMake variables:
 
 ```sh
 pytest test/ -v                                    # Run all tests
-pytest test/test_segment_max_csr.py -v             # Single operator test
-pytest test/test_segment_max_csr.py::test_func -v  # Single test case
+pytest test/segment_max_csr/test_segment_max_csr.py -v             # Single operator test
+pytest test/segment_max_csr/test_segment_max_csr.py::test_func -v  # Single test case
 ```
 
 ### 5.2 Test Writing Pattern

@@ -26,24 +26,27 @@ def segment_max_csr_cpu(src, indptr):
     src_cpu = src.cpu()
     indptr_cpu = indptr.cpu()
     src_shape = src.shape
+    fill_values = {
+        torch.float32: float('-inf'),
+        torch.float16: -65504,
+        torch.int32: -2147483648,
+        torch.int16: -32768,
+    }
+    fill_value = fill_values.get(src.dtype, -32768)
     
     for batch_idx in range(src_shape[0]):
         for seg in range(n_segments):
             start = int(indptr_cpu[0, seg]) if indptr_dim > 1 else int(indptr_cpu[seg])
-            end = int(indptr_cpu[0, seg+1]) if indptr_dim > 1 else int(indptr_cpu[seg+1])
+            end = int(indptr_cpu[0, seg + 1]) if indptr_dim > 1 else int(indptr_cpu[seg + 1])
             
             if start >= end:
-                fill_value = float('-inf') if src.dtype == torch.float32 else (
-                    -65504 if src.dtype == torch.float16 else (
-                        -2147483648 if src.dtype == torch.int32 else -32768
-                    )
-                )
                 result[batch_idx, seg] = fill_value
+                continue
+
+            if indptr_dim == 1:
+                result[seg] = src_cpu[start:end].max(dim=0).values
             else:
-                if indptr_dim == 1:
-                    result[seg] = src_cpu[start:end].max(dim=0).values
-                else:
-                    result[batch_idx, seg] = src_cpu[batch_idx, start:end].max(dim=0).values
+                result[batch_idx, seg] = src_cpu[batch_idx, start:end].max(dim=0).values
     
     return result
 

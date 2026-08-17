@@ -253,8 +253,8 @@ CMakeLists.txt 负责编译 AscendC Kernel 和 PyTorch 绑定库：
 
 ```sh
 pytest test/ -v                                    # 运行所有测试
-pytest test/test_segment_max_csr.py -v             # 单个算子测试
-pytest test/test_segment_max_csr.py::test_func -v  # 单个测试用例
+pytest test/segment_max_csr/test_segment_max_csr.py -v             # 单个算子测试
+pytest test/segment_max_csr/test_segment_max_csr.py::test_func -v  # 单个测试用例
 ```
 
 ### 5.2 测试编写模式

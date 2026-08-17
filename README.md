@@ -35,7 +35,6 @@ ops-gnn/
 │       ├── segment_max_csr.py  # Python接口声明
 │       └── typing.py           # 类型定义
 ├── test/                       # 测试目录
-├── gather_coo/                 # Gather COO 算子交付说明
 ├── scripts/                    # 构建脚本目录
 │   └── build.sh                # 统一构建脚本
 ├── cmake/                      # CMake配置
