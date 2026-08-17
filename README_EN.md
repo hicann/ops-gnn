@@ -18,10 +18,12 @@ ops-gnn/
 │   └── ops_gnn/                # Python package
 │       ├── __init__.py         # Package initialization
 │       ├── add_sample.py       # Python interface declaration
+│       ├── gather_coo.py       # Python interface declaration
 │       ├── random_walk.py      # Random-walk Python interface
 │       ├── segment_max_csr.py  # Python interface declaration
 │       └── typing.py           # Type definitions
 ├── test/                       # Test directory
+├── gather_coo/                 # Gather COO delivery notes
 ├── scripts/                    # Build scripts
 │   └── build.sh                # Unified build script
 ├── cmake/                      # CMake configuration
@@ -39,14 +41,15 @@ ops-gnn/
 - Python 3.9+
 - CMake 3.18+
 - PyTorch 2.7+
-- torch_npu 26.0.0+ (PyTorch NPU extension)
+- A torch_npu build matched to PyTorch and CANN (Gather COO was verified with PyTorch 2.7.1 / torch_npu 2.7.1.post4)
 - CANN Toolkit (AscendC compiler)
 - C++17 or later compiler
 
 ### CANN Environment Setup
 
 ```bash
-source ${ASCEND_HOME_PATH}/bin/setenv.bash
+export CANN_SETENV=/path/to/cann/bin/setenv.bash
+source "$CANN_SETENV"
 ```
 
 ## Installation
@@ -55,10 +58,11 @@ source ${ASCEND_HOME_PATH}/bin/setenv.bash
 
 ```bash
 # Activate CANN environment
-source ${ASCEND_HOME_PATH}/bin/setenv.bash
+export CANN_SETENV=/path/to/cann/bin/setenv.bash
+source "$CANN_SETENV"
 
 # Install in development mode
-pip install --no-build-isolation -e .
+python3 -m pip install --no-build-isolation --no-deps -e .
 ```
 
 ### Method 2: Using the build script
@@ -73,7 +77,9 @@ cd scripts
 ### Method 3: Using CMake (Linux)
 
 ```bash
-source /usr/local/Ascend/cann-9.1.0-beta.1/bin/setenv.bash
+# Use the CANN setup script that matches PyTorch/torch_npu on this machine.
+export CANN_SETENV=/path/to/cann/bin/setenv.bash
+source "$CANN_SETENV"
 
 mkdir -p build_cmake
 cd build_cmake
@@ -89,6 +95,14 @@ pip install pytest pytest-cov
 
 # Run all tests
 pytest test/ -v
+```
+
+Gather COO tests are under `test/gather_coo/`:
+
+```bash
+OPSGNN_REQUIRE_TORCH_SCATTER=1 \
+python3 -m pytest test/gather_coo/test_gather_coo_functional.py -v
+python3 test/gather_coo/test_gather_coo_performance.py --warmup 20 --repeats 100
 ```
 
 ## Usage Examples
@@ -108,6 +122,12 @@ src = torch.tensor([[1, 2], [3, 4], [5, 6], [7, 8]], dtype=torch.float32, device
 indptr = torch.tensor([0, 2, 4], dtype=torch.int32, device='npu')
 result = ops_gnn.segment_max_csr(src, indptr)
 print(result)  # output: tensor([[3, 4], [7, 8]], device='npu:0')
+
+# COO row expansion; index must be sorted int64
+src = torch.arange(20, dtype=torch.float32, device='npu').reshape(5, 4)
+index = torch.tensor([0, 1, 1, 4], dtype=torch.int64, device='npu')
+result = ops_gnn.gather_coo(src, index)
+print(result.shape)  # output: torch.Size([4, 4])
 ```
 
 ## Operator List
@@ -115,6 +135,7 @@ print(result)  # output: tensor([[3, 4], [7, 8]], device='npu:0')
 | Operator | Description | Device Support |
 |----------|-------------|----------------|
 | `add_sample` | Element-wise addition of two tensors | NPU |
+| `gather_coo` | Expand source rows by sorted COO indices | NPU |
 | `random_walk` | Uniform or node2vec-biased random walks on COO graphs | NPU |
 | `segment_max_csr` | Segmented max reduction on CSR format | NPU |
 | `graclus_cluster` | Greedy graph clustering | NPU / CPU fallback for float64 |

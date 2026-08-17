@@ -17,6 +17,7 @@ except ImportError:
 
 from .add_sample import add_sample
 from .graclus_cluster import graclus_cluster
+from .gather_coo import gather_coo
 from .random_walk import random_walk
 from .segment_max_csr import segment_max_csr
 from .typing import Tensor, OptTensor
@@ -26,6 +27,7 @@ __version__ = '0.1.0'
 __all__ = [
     'add_sample',
     'graclus_cluster',
+    'gather_coo',
     'random_walk',
     'segment_max_csr',
     'Tensor',

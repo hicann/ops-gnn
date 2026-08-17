@@ -274,7 +274,7 @@ pytest test/test_segment_max_csr.py::test_func -v  # 单个测试用例
 用户代码
     └─→ ops_gnn.segment_max_csr(src, indptr, optional_out)
             │  python/ops_gnn/segment_max_csr.py
-            │  (参数默认值处理：None → 空 Tensor)
+            │  （旧接口参数默认值处理；Gather COO 的 None 由 pybind 显式传递）
             └─→ _pybind.segment_max_csr(src, indptr, optional_out)
                     │  csrc/pybind.cpp
                     │  (PYBIND11_MODULE 注册)
@@ -293,7 +293,7 @@ pytest test/test_segment_max_csr.py::test_func -v  # 单个测试用例
 
 - **Python**（`python/ops_gnn/<op>.py`）：类型注解、可选参数默认值、调用 `_pybind.<op>`
 - **PyBind**（`csrc/pybind.cpp`）：`m.def("<op>", &func, py::arg(...), ...)` 注册 C++ 函数
-- **Host**（`csrc/npu/host/<op>/`）：Tensor 维度解析 → Tiling 参数计算 → `torch::empty` 创建输出 → `aclrtCreateStream` → 按 `scalar_type` 分发模板 Launch → `aclrtSynchronizeStream` → 销毁 Stream
+- **Host**（`csrc/npu/host/<op>/`）：Tensor 维度解析 → Tiling 参数计算 → `torch::empty` 创建输出 → 按 `scalar_type` 分发模板 Launch。旧算子可以自行管理 Stream；Gather COO 必须复用 PyTorch 当前 NPU stream，不创建、同步或销毁私有 ACL Stream。
 - **Kernel Launch**（`csrc/npu/kernel/<op>/<op>_kernel.cpp`）：`GetCoreNumAiv()` 获取核数 → `<<<coreNum, nullptr, stream>>>` 启动 → 显式模板实例化
 - **Kernel 实现**（`<op>_kernel_impl.h`）：`Init()` 解析 Tiling + 分配 Buffer/Event → `Process()` 按 Block 分配工作范围 → `Compute()` 双缓冲流水线（DataCopy → Max/Add → DataCopy）
 
@@ -310,7 +310,7 @@ csrc/npu/kernel/<op>/
 ├── <op>_kernel.h            # template<typename T> void Launch<Op>Kernel(...);
 ├── <op>_kernel.cpp          # Launch 实现 + 模板实例化
 ├── <op>_kernel_impl.h       # Kernel 核心类 (Init/Process/Compute)
-└── <op>_tiling.h            # struct <Op>TilingData { uint32_t ... };
+└── <op>_tiling.h            # struct <Op>TilingData { uint32_t/uint64_t ... };
 
 python/ops_gnn/
 └── <op>.py                  # Python 接口
@@ -339,10 +339,10 @@ test/
 ### 6.4 开发流程总结
 
 1. 参照 `segment_max_csr` 创建目录结构和文件
-2. 定义 Tiling 结构体（仅 `uint32_t` 类型，不含指针）
+2. 定义 Tiling 结构体（不含指针；形状、长度和地址相关字段按需使用 64-bit）
 3. 实现 Kernel 核心类（Init → Process → Compute），用 TPipe + Event 做双缓冲流水线
 4. 实现 Launch 函数，`<<<>>>` 用 `#pragma GCC diagnostic` 包围
-5. Host 端：维度解析 → Tiling 填充 → `torch::empty` → `aclrtCreateStream` → dtype 分发 Launch → 同步 → 销毁 Stream
+5. Host 端：维度解析 → Tiling 填充 → `torch::empty` → dtype 分发 Launch；需要异步语义的算子复用当前 PyTorch NPU stream，不在算子内部创建或同步私有 Stream
 6. 在 `pybind.cpp` 中 `m.def(...)` 注册
 7. 编写 Python 接口（类型注解 + docstring + 默认值处理）
 8. 更新 `__init__.py` 导出

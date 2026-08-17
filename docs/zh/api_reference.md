@@ -20,7 +20,7 @@ from typing import Optional
 OptTensor = Optional[torch.Tensor]
 ```
 
-可选 Tensor 类型，用于可能有默认值的可选参数。当传入 `None` 时，Python 层会自动转换为空 Tensor 传给底层 C++ 实现。
+可选 Tensor 类型，用于可能有默认值的可选参数。`None` 在 pybind 层显式表示“未提供”；合法的空 Tensor 仍按真实 `out` 参数处理。
 
 ---
 
@@ -287,9 +287,54 @@ Python 层复现 `torch_cluster.graclus_cluster` 预处理：推断 `num_nodes`�
 - 算法包含随机性；固定 `torch.manual_seed` 后结果可复现。
 - 自环会在 Python 层去除。
 
+### 2.4 gather_coo — COO 行扩展
+
+**函数签名：**
+
+```python
+def gather_coo(
+    src: Tensor,
+    index: Tensor,
+    out: Optional[Tensor] = None,
+) -> Tensor:
+```
+
+令 `dim = index.dim() - 1`，`index` 的前缀形状必须与 `src` 的前 `dim` 个维度一致。输出形状与 `src` 相同，仅将 `dim` 维替换为 `index.size(-1)`，并满足：
+
+```text
+out[..., e, ...] = src[..., index[..., e], ...]
+```
+
+`index` 必须是 NPU 上的 `torch.int64`，并满足任务书规定的非降序和值域前置条件。算子只实现前向原始位拷贝，不提供反向实现；支持 rank 1～8、非连续输入/输出、空 Tensor，以及 FP16/BF16/FP32、INT8/16/32、UINT8、FP64/INT64。
+
+当提供 `out` 时，必须是与推导结果完全相同 shape、dtype 和 device 的 Tensor；返回值与 `out` 共享存储。`None` 与显式传入的空 `out` 不等价。
+
+**示例：**
+
+```python
+import torch
+import ops_gnn
+
+device = torch.device("npu")  # 使用调用进程的当前 NPU，不硬编码设备序号
+src = torch.arange(20, dtype=torch.float32, device=device).reshape(5, 4)
+index = torch.tensor([0, 1, 1, 4], dtype=torch.int64, device=device)
+out = ops_gnn.gather_coo(src, index)
+# out.shape == (4, 4)，连续重复的 index=1 会复制同一行
+
+provided = torch.empty_like(out)
+returned = ops_gnn.gather_coo(src, index, out=provided)
+assert returned.data_ptr() == provided.data_ptr()
+```
+
+**实现与性能说明：**
+
+- Host 将输入展平为 `B × N × K`、`B × E` 和 `B × E × K`，使用 64-bit 长度/偏移；kernel 复用当前 PyTorch NPU stream，不创建或同步私有 ACL stream。
+- 非连续 `src/index` 在当前 stream 上连续化；显式 `out` 通过连续临时结果回写，以覆盖非连续和别名场景。
+- 有序的连续重复索引在单 UB tile 内复用源行；不按测试 case 或固定 shape 白名单路由。
+
 ---
 
-### 2.4 random_walk — NPU 随机游走
+### 2.5 random_walk — NPU 随机游走
 
 **函数签名：**
 
@@ -383,6 +428,7 @@ pytest test/ -v
 pytest test/test_example.py -v
 pytest test/test_segment_max_csr.py -v
 pytest test/graclus_cluster/test_graclus_functional.py -v
+python -m pytest test/gather_coo/test_gather_coo_functional.py -v
 pytest test/random_walk -v
 
 # 运行 random_walk 性能测试
@@ -406,7 +452,7 @@ def test_my_operator():
     torch.manual_seed(42)            # 2. 设置随机种子
 
     # 3. 创建 NPU Tensor
-    src = torch.tensor([...], dtype=torch.float32, device='npu')
+    src = torch.tensor([...], dtype=torch.float32, device=device)
 
     # 4. 调用算子
     result = ops_gnn.my_op(src)

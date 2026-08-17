@@ -18,10 +18,12 @@ ops-gnn/
 │   └── ops_gnn/                # Python包目录
 │       ├── __init__.py         # 包初始化文件
 │       ├── add_sample.py       # Python接口声明
+│       ├── gather_coo.py       # Python接口声明
 │       ├── random_walk.py      # 随机游走 Python 接口
 │       ├── segment_max_csr.py  # Python接口声明
 │       └── typing.py           # 类型定义
 ├── test/                       # 测试目录
+├── gather_coo/                 # Gather COO 算子交付说明
 ├── scripts/                    # 构建脚本目录
 │   └── build.sh                # 统一构建脚本
 ├── cmake/                      # CMake配置
@@ -39,14 +41,15 @@ ops-gnn/
 - Python 3.9+
 - CMake 3.18+
 - PyTorch 2.7+
-- torch_npu 26.0.0 及之后版本 (PyTorch NPU 扩展)
+- 与 PyTorch、CANN 匹配的 torch_npu（Gather COO 实测为 PyTorch 2.7.1 / torch_npu 2.7.1.post4）
 - CANN Toolkit (AscendC 编译器)
 - C++17 或更高版本编译器
 
 ### CANN 环境配置
 
 ```bash
-source ${ASCEND_HOME_PATH}/bin/setenv.bash
+export CANN_SETENV=/path/to/cann/bin/setenv.bash
+source "$CANN_SETENV"
 ```
 
 ## 安装方法
@@ -55,10 +58,11 @@ source ${ASCEND_HOME_PATH}/bin/setenv.bash
 
 ```bash
 # 激活 CANN 环境
-source ${ASCEND_HOME_PATH}/bin/setenv.bash
+export CANN_SETENV=/path/to/cann/bin/setenv.bash
+source "$CANN_SETENV"
 
 # 安装开发模式
-pip install --no-build-isolation -e .
+python3 -m pip install --no-build-isolation --no-deps -e .
 ```
 
 ### 方法2：使用构建脚本
@@ -73,7 +77,9 @@ cd scripts
 ### 方法3：使用CMake（Linux）
 
 ```bash
-source /usr/local/Ascend/cann-9.1.0-beta.1/bin/setenv.bash
+# 使用当前机器上与 PyTorch/torch_npu 匹配的 CANN 初始化脚本
+export CANN_SETENV=/path/to/cann/bin/setenv.bash
+source "$CANN_SETENV"
 
 mkdir -p build_cmake
 cd build_cmake
@@ -89,6 +95,14 @@ pip install pytest pytest-cov
 
 # 运行所有测试
 pytest test/ -v
+```
+
+Gather COO 测试位于 `test/gather_coo/`：
+
+```bash
+OPSGNN_REQUIRE_TORCH_SCATTER=1 \
+python3 -m pytest test/gather_coo/test_gather_coo_functional.py -v
+python3 test/gather_coo/test_gather_coo_performance.py --warmup 20 --repeats 100
 ```
 
 ## 使用示例
@@ -108,6 +122,12 @@ src = torch.tensor([[1, 2], [3, 4], [5, 6], [7, 8]], dtype=torch.float32, device
 indptr = torch.tensor([0, 2, 4], dtype=torch.int32, device='npu')
 result = ops_gnn.segment_max_csr(src, indptr)
 print(result)  # 输出: tensor([[3, 4], [7, 8]], device='npu:0')
+
+# COO 行扩展；index 必须为有序 int64
+src = torch.arange(20, dtype=torch.float32, device='npu').reshape(5, 4)
+index = torch.tensor([0, 1, 1, 4], dtype=torch.int64, device='npu')
+result = ops_gnn.gather_coo(src, index)
+print(result.shape)  # 输出: torch.Size([4, 4])
 ```
 
 ## 算子列表
@@ -115,6 +135,7 @@ print(result)  # 输出: tensor([[3, 4], [7, 8]], device='npu:0')
 | 算子 | 功能 | 设备支持 |
 |------|------|----------|
 | `add_sample` | 两个 tensor 逐元素相加 | NPU |
+| `gather_coo` | 按有序 COO 索引扩展源行 | NPU |
 | `random_walk` | COO 图上的均匀或 node2vec 偏置随机游走 | NPU |
 | `segment_max_csr` | CSR 格式的分段最大值运算 | NPU |
 | `graclus_cluster` | 图贪心聚类 | NPU / CPU float64 回退 |

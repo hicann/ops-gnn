@@ -20,7 +20,7 @@ from typing import Optional
 OptTensor = Optional[torch.Tensor]
 ```
 
-Optional Tensor type for parameters that may have default values. When `None` is passed, the Python layer automatically converts it to an empty Tensor for the underlying C++ implementation.
+Optional Tensor type for parameters that may have default values. `None` is represented explicitly at the pybind boundary; a valid empty Tensor remains a real `out` argument.
 
 ---
 
@@ -312,9 +312,54 @@ assert cluster.device.type == "npu"
 assert cluster.shape == (3,)
 ```
 
+### 2.4 gather_coo — COO Row Expansion
+
+**Function signature:**
+
+```python
+def gather_coo(
+    src: Tensor,
+    index: Tensor,
+    out: Optional[Tensor] = None,
+) -> Tensor:
+```
+
+Let `dim = index.dim() - 1`. The prefix shape of `index` must match the first `dim` dimensions of `src`. The output has the same shape as `src`, except `src.size(dim)` is replaced by `index.size(-1)`, and:
+
+```text
+out[..., e, ...] = src[..., index[..., e], ...]
+```
+
+`index` must be an NPU `torch.int64` tensor and satisfy the task's sorted, in-range preconditions. The operator is forward-only and performs a raw bit copy; it supports ranks 1–8, non-contiguous inputs/outputs, empty tensors, and FP16/BF16/FP32, INT8/16/32, UINT8, FP64, and INT64.
+
+When `out` is supplied, it must have the exact inferred shape, matching dtype, and matching device. The returned tensor shares storage with `out`. `None` is distinct from an explicitly supplied empty `out` tensor.
+
+**Example:**
+
+```python
+import torch
+import ops_gnn
+
+device = torch.device("npu")  # use the process's current NPU; no fixed ordinal
+src = torch.arange(20, dtype=torch.float32, device=device).reshape(5, 4)
+index = torch.tensor([0, 1, 1, 4], dtype=torch.int64, device=device)
+out = ops_gnn.gather_coo(src, index)
+# out.shape == (4, 4); repeated index=1 copies the same source row
+
+provided = torch.empty_like(out)
+returned = ops_gnn.gather_coo(src, index, out=provided)
+assert returned.data_ptr() == provided.data_ptr()
+```
+
+**Implementation and performance notes:**
+
+- The Host flattens inputs to `B × N × K`, `B × E`, and `B × E × K`, using 64-bit lengths and offsets. The kernel reuses PyTorch's current NPU stream and never creates or synchronizes a private ACL stream.
+- Non-contiguous `src/index` tensors are made contiguous on the current stream. Explicit `out` uses a contiguous temporary result before copy-back, covering non-contiguous and aliasing cases.
+- Consecutive equal sorted indices reuse a source row within one UB tile. Dispatch does not depend on test-case IDs or fixed-shape whitelists.
+
 ---
 
-### 2.4 random_walk — NPU Random Walk
+### 2.5 random_walk — NPU Random Walk
 
 **Function Signature:**
 
@@ -409,6 +454,7 @@ pytest test/ -v
 pytest test/test_example.py -v
 pytest test/test_segment_max_csr.py -v
 pytest test/graclus_cluster/test_graclus_functional.py -v
+python -m pytest test/gather_coo/test_gather_coo_functional.py -v
 pytest test/random_walk -v
 
 # Run the random_walk performance benchmark
@@ -432,7 +478,7 @@ def test_my_operator():
     torch.manual_seed(42)            # 2. Set random seed
 
     # 3. Create NPU Tensor
-    src = torch.tensor([...], dtype=torch.float32, device='npu')
+    src = torch.tensor([...], dtype=torch.float32, device=device)
 
     # 4. Call operator
     result = ops_gnn.my_op(src)

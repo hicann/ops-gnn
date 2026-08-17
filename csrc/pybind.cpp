@@ -9,10 +9,14 @@
  */
 
 #include <torch/extension.h>
+#include <pybind11/pybind11.h>
 #include "host/add_sample/add_sample.h"
+#include "host/gather_coo/gather_coo.h"
 #include "host/random_walk/random_walk.h"
 #include "host/segment_max_csr/segment_max_csr.h"
 #include "host/graclus_cluster/graclus_cluster.h"
+
+namespace py = pybind11;
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.doc() = "ops_gnn: NPU extension";
@@ -27,4 +31,17 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.def("graclus_cluster_npu", &graclus_cluster_npu, py::arg("rowptr"), py::arg("col"),
           py::arg("weight"), py::arg("node_perm"), py::arg("num_nodes"), py::arg("has_weight"),
           py::arg("weight_mode"), "Graclus greedy clustering core(NPU)");
+    m.def(
+        "gather_coo",
+        [](torch::Tensor src, torch::Tensor index, py::object outObject) {
+            c10::optional<torch::Tensor> optionalOut = c10::nullopt;
+            if (!outObject.is_none()) {
+                optionalOut = outObject.cast<torch::Tensor>();
+            }
+            return gather_coo(src, index, optionalOut);
+        },
+        py::arg("src"),
+        py::arg("index"),
+        py::arg("out") = py::none(),
+        "Gather rows using a COO index on the current NPU stream");
 }

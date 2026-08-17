@@ -16,6 +16,7 @@ def test_import():
     import ops_gnn
     assert hasattr(ops_gnn, 'add_sample')
     assert hasattr(ops_gnn, 'graclus_cluster')
+    assert hasattr(ops_gnn, 'gather_coo')
 
 
 def test_version():

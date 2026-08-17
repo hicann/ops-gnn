@@ -277,7 +277,7 @@ This section uses `segment_max_csr` as an example to illustrate the operator dev
 User Code
     └─→ ops_gnn.segment_max_csr(src, indptr, optional_out)
             │  python/ops_gnn/segment_max_csr.py
-            │  (default value handling: None → empty Tensor)
+            │  (legacy optional-argument handling; Gather COO passes None explicitly through pybind)
             └─→ _pybind.segment_max_csr(src, indptr, optional_out)
                     │  csrc/pybind.cpp
                     │  (PYBIND11_MODULE registration)
@@ -296,7 +296,7 @@ Each layer's responsibilities:
 
 - **Python** (`python/ops_gnn/<op>.py`): Type annotations, optional param defaults, calls `_pybind.<op>`
 - **PyBind** (`csrc/pybind.cpp`): `m.def("<op>", &func, py::arg(...), ...)` registers C++ function
-- **Host** (`csrc/npu/host/<op>/`): Tensor dimension parsing → Tiling calc → `torch::empty` create output → `aclrtCreateStream` → dtype dispatch launch → `aclrtSynchronizeStream` → destroy Stream
+- **Host** (`csrc/npu/host/<op>/`): Tensor dimension parsing → Tiling calc → `torch::empty` create output → dtype dispatch launch. Legacy operators may manage their own stream; Gather COO must reuse PyTorch's current NPU stream and must not create, synchronize, or destroy a private ACL stream.
 - **Kernel Launch** (`csrc/npu/kernel/<op>/<op>_kernel.cpp`): `GetCoreNumAiv()` get core count → `<<<coreNum, nullptr, stream>>>` launch → explicit template instantiation
 - **Kernel Impl** (`<op>_kernel_impl.h`): `Init()` parse Tiling + allocate Buffer/Event → `Process()` assign work range per Block → `Compute()` double-buffer pipeline (DataCopy → Max/Add → DataCopy)
 
@@ -313,7 +313,7 @@ csrc/npu/kernel/<op>/
 ├── <op>_kernel.h            # template<typename T> void Launch<Op>Kernel(...);
 ├── <op>_kernel.cpp          # Launch impl + template instantiation
 ├── <op>_kernel_impl.h       # Kernel core class (Init/Process/Compute)
-└── <op>_tiling.h            # struct <Op>TilingData { uint32_t ... };
+└── <op>_tiling.h            # struct <Op>TilingData { uint32_t/uint64_t ... };
 
 python/ops_gnn/
 └── <op>.py                  # Python interface
@@ -342,10 +342,10 @@ Simple operators can merge files: omit `_tiling.h` when no Tiling, merge `_kerne
 ### 6.4 Development Process Summary
 
 1. Create directory structure and files following `segment_max_csr`
-2. Define Tiling struct (only `uint32_t` types, no pointers)
+2. Define the Tiling struct (no pointers; use 64-bit fields for shape, length, and address values where required)
 3. Implement Kernel core class (Init → Process → Compute), use TPipe + Event for double-buffer pipeline
 4. Implement Launch function, wrap `<<<>>>` with `#pragma GCC diagnostic`
-5. Host side: dimension parsing → Tiling fill → `torch::empty` → `aclrtCreateStream` → dtype dispatch launch → sync → destroy Stream
+5. Host side: dimension parsing → Tiling fill → `torch::empty` → dtype dispatch launch; operators requiring asynchronous semantics reuse PyTorch's current NPU stream instead of creating or synchronizing a private stream
 6. Register with `m.def(...)` in `pybind.cpp`
 7. Write Python interface (type annotations + docstring + default handling)
 8. Update `__init__.py` exports

@@ -52,11 +52,19 @@ endif()
 ###############################################################################
 
 if(NOT DEFINED ENV{ASCEND_HOME_PATH})
-    message(FATAL_ERROR "ASCEND_HOME_PATH environment variable not set. Please source /usr/local/Ascend/cann-9.1.0-beta.1/bin/setenv.bash first.")
+    message(FATAL_ERROR "ASCEND_HOME_PATH environment variable not set. Please source the CANN setenv.bash first.")
 endif()
 set(ASCEND_HOME_PATH "$ENV{ASCEND_HOME_PATH}")
 
-set(BISHENG "${ASCEND_HOME_PATH}/${SYSTEM_PREFIX}/ccec_compiler/bin/bisheng" CACHE FILEPATH "Path to Bisheng compiler")
+if(EXISTS "${ASCEND_HOME_PATH}/bin/bisheng")
+    set(BISHENG "${ASCEND_HOME_PATH}/bin/bisheng" CACHE FILEPATH "Path to Bisheng compiler")
+elseif(EXISTS "${ASCEND_HOME_PATH}/${SYSTEM_PREFIX}/ccec_compiler/bin/bisheng")
+    set(BISHENG "${ASCEND_HOME_PATH}/${SYSTEM_PREFIX}/ccec_compiler/bin/bisheng" CACHE FILEPATH "Path to Bisheng compiler")
+else()
+    message(FATAL_ERROR
+        "Bisheng compiler not found under ${ASCEND_HOME_PATH}/bin/bisheng or "
+        "${ASCEND_HOME_PATH}/${SYSTEM_PREFIX}/ccec_compiler/bin/bisheng")
+endif()
 message(STATUS "Bisheng compiler path: ${BISHENG}")
 set(CMAKE_ASC_COMPILER "${BISHENG}" CACHE FILEPATH "ASC compiler" FORCE)
 
@@ -136,6 +144,7 @@ if(WITH_PYTHON)
     )
     set(Python3_LIBRARIES "${Python3_LIBDIR}/${Python3_LDLIBRARY}")
     set(Python3_FOUND TRUE)
+    set(OPSGNN_PYTHON_EXECUTABLE "${Python3_ROOT_DIR}/bin/python3")
 
     add_library(Python3::Python SHARED IMPORTED)
     set_property(TARGET Python3::Python PROPERTY IMPORTED_LOCATION "${Python3_LIBRARIES}")
@@ -144,6 +153,8 @@ if(WITH_PYTHON)
     message(STATUS "Manually detected Python3:")
     message(STATUS "  Include: ${Python3_INCLUDE_DIRS}")
     message(STATUS "  Library: ${Python3_LIBRARIES}")
+else()
+    set(OPSGNN_PYTHON_EXECUTABLE python3)
 endif()
 
 ###############################################################################
@@ -151,14 +162,14 @@ endif()
 ###############################################################################
 
 execute_process(
-    COMMAND python3 -c "import torch; import os; print(os.path.dirname(torch.__file__))"
+    COMMAND "${OPSGNN_PYTHON_EXECUTABLE}" -c "import torch; import os; print(os.path.dirname(torch.__file__))"
     OUTPUT_VARIABLE TORCH_INSTALL_PREFIX
     OUTPUT_STRIP_TRAILING_WHITESPACE
     ERROR_QUIET
 )
 
 execute_process(
-    COMMAND python3 -c "import torch; print(torch.utils.cmake_prefix_path)"
+    COMMAND "${OPSGNN_PYTHON_EXECUTABLE}" -c "import torch; print(torch.utils.cmake_prefix_path)"
     OUTPUT_VARIABLE TORCH_CMAKE_PREFIX_PATH
     OUTPUT_STRIP_TRAILING_WHITESPACE
     ERROR_QUIET
@@ -180,7 +191,7 @@ find_package(Torch REQUIRED)
 message(STATUS "Found PyTorch: ${TORCH_INSTALL_PREFIX}")
 
 execute_process(
-    COMMAND python3 -c "import torch_npu, os; print(os.path.dirname(torch_npu.__file__))"
+    COMMAND "${OPSGNN_PYTHON_EXECUTABLE}" -c "import importlib.util, os; spec = importlib.util.find_spec('torch_npu'); print(os.path.dirname(spec.origin) if spec and spec.origin else '')"
     OUTPUT_VARIABLE TORCH_NPU_INSTALL_PREFIX
     OUTPUT_STRIP_TRAILING_WHITESPACE
     ERROR_QUIET
@@ -191,6 +202,12 @@ if(NOT TORCH_NPU_INSTALL_PREFIX)
 endif()
 set(TORCH_NPU_INCLUDE_DIR "${TORCH_NPU_INSTALL_PREFIX}/include")
 set(TORCH_NPU_LIBRARY_DIR "${TORCH_NPU_INSTALL_PREFIX}/lib")
+if(NOT EXISTS "${TORCH_NPU_INCLUDE_DIR}")
+    message(FATAL_ERROR "torch_npu include directory not found: ${TORCH_NPU_INCLUDE_DIR}")
+endif()
+if(NOT EXISTS "${TORCH_NPU_LIBRARY_DIR}")
+    message(FATAL_ERROR "torch_npu library directory not found: ${TORCH_NPU_LIBRARY_DIR}")
+endif()
 message(STATUS "Found Torch NPU: ${TORCH_NPU_INSTALL_PREFIX}")
 
 ###############################################################################
@@ -200,6 +217,9 @@ message(STATUS "Found Torch NPU: ${TORCH_NPU_INSTALL_PREFIX}")
 file(GLOB_RECURSE NPU_ASC_FILES 
     csrc/npu/kernel/*.asc 
     csrc/npu/kernel/*.cpp
+)
+file(GLOB_RECURSE NPU_KERNEL_HEADERS
+    csrc/npu/kernel/*.h
 )
 
 file(GLOB_RECURSE NPU_CPP_INTERFACE_FILES 
@@ -255,6 +275,7 @@ if(NPU_ASC_FILES)
                 ${ASC_INCLUDE_FLAGS}
                 -o ${OBJ_FILE}
             MAIN_DEPENDENCY ${ASC_FILE}
+            DEPENDS ${NPU_KERNEL_HEADERS}
             COMMENT "Compiling ASC kernel: ${FILE_NAME}${FILE_EXT}"
         )
     endforeach()
