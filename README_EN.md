@@ -28,6 +28,7 @@ ops-gnn/
 │       ├── __init__.py         # Package initialization
 │       ├── add_sample.py       # Python interface declaration
 │       ├── gather_coo.py       # Python interface declaration
+│       ├── gather_csr.py       # Gather CSR Python interface
 │       ├── ind2ptr.py          # ind2ptr Python interface
 │       ├── ptr2ind.py          # ptr2ind Python interface
 │       ├── random_walk.py      # Random-walk Python interface
@@ -138,6 +139,12 @@ src = torch.arange(20, dtype=torch.float32, device='npu').reshape(5, 4)
 index = torch.tensor([0, 1, 1, 4], dtype=torch.int64, device='npu')
 result = ops_gnn.gather_coo(src, index)
 print(result.shape)  # output: torch.Size([4, 4])
+
+# Expand segment features using CSR pointers
+src = torch.tensor([[1, 2], [3, 4]], dtype=torch.float16, device='npu')
+indptr = torch.tensor([0, 2, 5], dtype=torch.int64, device='npu')
+result = ops_gnn.gather_csr(src, indptr)
+print(result.shape)  # torch.Size([5, 2])
 ```
 
 ## Operator List
@@ -146,6 +153,7 @@ print(result.shape)  # output: torch.Size([4, 4])
 |----------|-------------|----------------|
 | `add_sample` | Element-wise addition of two tensors | NPU |
 | `gather_coo` | Expand source rows by sorted COO indices | NPU |
+| [`gather_csr`](docs/en/api_reference.md) | Expands segment features using CSR pointers | NPU |
 | `random_walk` | Uniform or node2vec-biased random walks on COO graphs | NPU |
 | `segment_max_csr` | Segmented max reduction on CSR format | NPU |
 | `graclus_cluster` | Greedy graph clustering | NPU / CPU fallback for float64 |

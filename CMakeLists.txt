@@ -196,7 +196,6 @@ execute_process(
     OUTPUT_STRIP_TRAILING_WHITESPACE
     ERROR_QUIET
 )
-
 if(NOT TORCH_NPU_INSTALL_PREFIX)
     message(FATAL_ERROR "torch_npu is required when building ops_gnn NPU extension")
 endif()
@@ -360,6 +359,8 @@ set_target_properties(_pybind PROPERTIES
     EXPORT_NAME OpsGNN
     LINK_FLAGS "-s"
     LIBRARY_OUTPUT_NAME "_pybind"
+    BUILD_RPATH "$ORIGIN"
+    INSTALL_RPATH "$ORIGIN"
 )
 
 add_custom_command(TARGET _pybind POST_BUILD
@@ -368,6 +369,15 @@ add_custom_command(TARGET _pybind POST_BUILD
     "${CMAKE_CURRENT_SOURCE_DIR}/python/ops_gnn/_pybind.so"
     COMMENT "Copying _pybind.so to python/ops_gnn/"
 )
+
+if(NPU_KERNEL_LIB)
+    add_custom_command(TARGET _pybind POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${NPU_KERNEL_LIB}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/python/ops_gnn/libopsgnn_npu_kernel.so"
+        COMMENT "Copying NPU kernel library to python/ops_gnn/"
+    )
+endif()
 
 ###############################################################################
 # Installation

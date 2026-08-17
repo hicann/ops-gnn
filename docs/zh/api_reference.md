@@ -506,6 +506,107 @@ assert edges.shape == (2, 8)
 
 ---
 
+### 2.5 gather_csr - CSR 分段展开
+
+**函数签名：**
+
+```python
+def gather_csr(
+    src: Tensor,
+    indptr: Tensor,
+    out: Optional[Tensor] = None,
+) -> Tensor:
+```
+
+`gather_csr` 是 `segment_csr` 的逆向展开操作。令 `dim = indptr.dim() - 1`，
+对每个 segment `i`，将 `src[..., i, ...]` 复制到：
+
+```text
+out[..., indptr[i]:indptr[i + 1], ...] = src[..., i, ...]
+```
+
+接口仅包含 `src`、`indptr` 和可选 `out`，不包含 `reduce`、`dim` 或
+`dim_size` 参数。
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `src` | Tensor | NPU Tensor；支持 float16、bfloat16、float32、int8、int16、int32、uint8、float64、int64 |
+| `indptr` | Tensor | 同一 NPU 上的 int64 CSR 指针，最后一维非降序 |
+| `out` | Optional[Tensor] | 可选输出；dtype、device、rank 和推导 Shape 必须匹配 `src` |
+
+支持前缀广播、空段、空 Tensor，以及非连续的 `src`、`indptr` 和 `out`。
+提供 `out` 时函数写入并返回原 Tensor；只提供前向计算。
+
+**支持范围：**
+
+| 项目 | 支持范围 |
+|------|----------|
+| 硬件 | Ascend 950PR（`dav-3510`） |
+| `src/out` dtype | float16、bfloat16、float32、int8、int16、int32、uint8、float64、int64 |
+| `indptr` dtype | int64 |
+| rank | `1 <= indptr.dim() <= src.dim()` |
+| 布局 | 连续及非连续 Tensor |
+| 特殊场景 | batch 广播、空段、空 Tensor、可选 `out` |
+| 计算范围 | 仅前向 |
+
+所有 dtype 均按原始字节复制，不进行数值计算或类型转换，因此结果与 CPU
+参考实现逐位一致。float64 和 int64 属于 L2 功能路径，不参与性能验收。
+
+**参数约束：**
+
+- `src`、`indptr` 和可选 `out` 必须位于同一 NPU；
+- `indptr.dim() <= src.dim()`，其前缀维可广播到 `src`；
+- 当 `indptr.size(-1) > 0` 时，满足 `src.size(dim) == indptr.size(-1) - 1`；若 `indptr`
+  的末维为空，则 `src.size(dim)` 必须为 `0`；
+- 每行 `indptr` 非降序、值位于 `[0, endpoint]`，且 batch endpoint 相同；
+- 未提供 `out` 时，输出的 `dim` 维长度为公共 endpoint；
+- 提供 `out` 时，其 dtype、device、rank 和推导 Shape 必须匹配。
+
+空 `src` 仍按 `indptr` endpoint 推导输出段维，并校验广播、单调性和范围；
+`indptr` 为空时 endpoint 按 0 处理。
+
+**实现说明：**
+
+Host 层负责参数校验、`indptr` 广播、非连续 Tensor 规整、输出申请和 Tiling。
+Ascend C Kernel 根据数据分布选择 `SegmentMajor` 或 `OutputMajor` 调度。
+前者按 `(batch, segment)` 分核，后者在 segment 数过少或段长严重倾斜时按输出行
+分核。完整且 32 字节对齐的 feature 使用 64 KB UB 重复缓冲区批量写出，其他
+feature 按 16 KB tile 搬运。Kernel 使用当前 PyTorch NPU stream。
+
+**使用示例：**
+
+```python
+import os
+import torch
+from ops_gnn import gather_csr
+
+device_id = int(os.environ.get("NPU_DEVICE_ID", 0))
+torch.npu.set_device(device_id)
+src = torch.tensor([[1, 2], [3, 4]], dtype=torch.float32, device="npu")
+indptr = torch.tensor([0, 2, 5], dtype=torch.int64, device="npu")
+out = gather_csr(src, indptr)
+# [[1, 2], [1, 2], [3, 4], [3, 4], [3, 4]]
+```
+
+**构建与测试：**
+
+```bash
+source ${ASCEND_HOME_PATH}/bin/setenv.bash
+# CPU 参考实现要求 torch_scatter >= 2.1.0。
+cmake -S . -B build/cmake_release \
+  -DNPU_ARCH=dav-3510 -DCMAKE_BUILD_TYPE=Release
+cmake --build build/cmake_release -j4
+export PYTHONPATH=$PWD/python
+export NPU_DEVICE_ID=0
+pytest -q test/gather_csr/test_gather_csr.py
+python test/gather_csr/verify_torch_scatter_reference.py
+python test/gather_csr/run_ascendoptest_gather_csr.py \
+  --ascendoptest-root /path/to/AscendOpTest
+python test/gather_csr/benchmark_gather_csr.py --warmup 20 --iterations 101
+```
+
+---
+
 ## 三、测试指南
 
 ### 3.1 运行测试
@@ -516,6 +617,7 @@ pytest test/ -v
 
 # 运行单个算子测试
 pytest test/test_example.py -v
+pytest test/gather_csr/test_gather_csr.py -v
 pytest test/segment_max_csr/test_segment_max_csr.py -v
 pytest test/graclus_cluster/test_graclus_functional.py -v
 python -m pytest test/gather_coo/test_gather_coo_functional.py -v

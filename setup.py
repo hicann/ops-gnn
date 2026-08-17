@@ -11,7 +11,7 @@ import os
 import shutil
 import subprocess
 
-from setuptools import find_packages, setup
+from setuptools import Distribution, find_packages, setup
 from setuptools.command.build_py import build_py
 
 __version__ = '0.1.0'
@@ -62,13 +62,19 @@ if not BUILD_DOCS:
 class CustomBuildPy(build_py):
     def run(self):
         build_py.run(self)
-        
-        pybind_src = os.path.join('python', 'ops_gnn', '_pybind.so')
-        if os.path.exists(pybind_src):
-            pybind_dest = os.path.join(self.build_lib, 'ops_gnn', '_pybind.so')
-            os.makedirs(os.path.dirname(pybind_dest), exist_ok=True)
-            shutil.copy2(pybind_src, pybind_dest)
-            print(f'Copied _pybind.so to build lib: {pybind_dest}')
+
+        for library_name in ('_pybind.so', 'libopsgnn_npu_kernel.so'):
+            library_src = os.path.join('python', 'ops_gnn', library_name)
+            if os.path.exists(library_src):
+                library_dest = os.path.join(self.build_lib, 'ops_gnn', library_name)
+                os.makedirs(os.path.dirname(library_dest), exist_ok=True)
+                shutil.copy2(library_src, library_dest)
+                print(f'Copied {library_name} to build lib: {library_dest}')
+
+
+class BinaryDistribution(Distribution):
+    def has_ext_modules(self):
+        return True
 
 setup(
     name='ops_gnn',
@@ -80,10 +86,12 @@ setup(
     download_url=f'{URL}/archive/{__version__}.tar.gz',
     python_requires='>=3.8',
     ext_modules=[],
+    distclass=BinaryDistribution,
     cmdclass={
         'build_py': CustomBuildPy,
     },
     packages=find_packages('python'),
     package_dir={'': 'python'},
+    package_data={'ops_gnn': ['*.so']},
     include_package_data=True,
 )

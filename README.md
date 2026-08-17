@@ -28,6 +28,7 @@ ops-gnn/
 │       ├── __init__.py         # 包初始化文件
 │       ├── add_sample.py       # Python接口声明
 │       ├── gather_coo.py       # Python接口声明
+│       ├── gather_csr.py       # Gather CSR Python接口
 │       ├── ind2ptr.py          # ind2ptr Python 接口
 │       ├── ptr2ind.py          # ptr2ind Python 接口
 │       ├── random_walk.py      # 随机游走 Python 接口
@@ -144,6 +145,12 @@ src = torch.arange(20, dtype=torch.float32, device='npu').reshape(5, 4)
 index = torch.tensor([0, 1, 1, 4], dtype=torch.int64, device='npu')
 result = ops_gnn.gather_coo(src, index)
 print(result.shape)  # 输出: torch.Size([4, 4])
+
+# 按 CSR 指针展开 segment 特征
+src = torch.tensor([[1, 2], [3, 4]], dtype=torch.float16, device='npu')
+indptr = torch.tensor([0, 2, 5], dtype=torch.int64, device='npu')
+result = ops_gnn.gather_csr(src, indptr)
+print(result.shape)  # torch.Size([5, 2])
 ```
 
 ## 算子列表
@@ -152,6 +159,7 @@ print(result.shape)  # 输出: torch.Size([4, 4])
 |------|------|----------|
 | `add_sample` | 两个 tensor 逐元素相加 | NPU |
 | `gather_coo` | 按有序 COO 索引扩展源行 | NPU |
+| [`gather_csr`](docs/zh/api_reference.md) | 按 CSR 指针展开 segment 特征 | NPU |
 | `random_walk` | COO 图上的均匀或 node2vec 偏置随机游走 | NPU |
 | `segment_max_csr` | CSR 格式的分段最大值运算 | NPU |
 | `graclus_cluster` | 图贪心聚类 | NPU / CPU float64 回退 |

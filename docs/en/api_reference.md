@@ -532,6 +532,112 @@ assert edges.shape == (2, 8)
 
 ---
 
+### 2.5 gather_csr - CSR Segment Expansion
+
+**Signature:**
+
+```python
+def gather_csr(
+    src: Tensor,
+    indptr: Tensor,
+    out: Optional[Tensor] = None,
+) -> Tensor:
+```
+
+`gather_csr` expands segment features and is the inverse operation of
+`segment_csr`. Let `dim = indptr.dim() - 1`. For every segment `i`:
+
+```text
+out[..., indptr[i]:indptr[i + 1], ...] = src[..., i, ...]
+```
+
+The interface contains only `src`, `indptr`, and optional `out`; it has no
+`reduce`, `dim`, or `dim_size` argument.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `src` | Tensor | NPU tensor with a supported L1 or L2 dtype |
+| `indptr` | Tensor | Non-decreasing int64 CSR pointers on the same NPU |
+| `out` | Optional[Tensor] | Optional output matching the inferred dtype, device, rank, and shape |
+
+The operator supports prefix broadcasting, empty segments and tensors, and
+non-contiguous `src`, `indptr`, and `out`. When provided, the same `out` object
+is updated and returned. Only forward execution is supported.
+
+**Supported inputs:**
+
+| Item | Support |
+|------|---------|
+| Hardware | Ascend 950PR (`dav-3510`) |
+| `src/out` dtype | float16, bfloat16, float32, int8, int16, int32, uint8, float64, int64 |
+| `indptr` dtype | int64 |
+| Rank | `1 <= indptr.dim() <= src.dim()` |
+| Layout | Contiguous and non-contiguous tensors |
+| Special cases | Batch broadcasting, empty segments/tensors, optional `out` |
+| Direction | Forward only |
+
+Every dtype is copied as raw bytes without arithmetic or type conversion.
+Float64 and int64 are L2 functional paths and are excluded from performance
+acceptance.
+
+**Constraints:**
+
+- `src`, `indptr`, and optional `out` must be on the same NPU.
+- `indptr.dim() <= src.dim()`, and its prefix dimensions must broadcast to `src`.
+- If `indptr.size(-1) > 0`, `src.size(dim) == indptr.size(-1) - 1`. If the last dimension of
+  `indptr` is empty, `src.size(dim)` must be `0`.
+- Every `indptr` row must be non-decreasing, stay in `[0, endpoint]`, and have
+  the same endpoint after broadcasting.
+- The output length at `dim` is the endpoint, or zero for an empty `indptr`.
+- Optional `out` must match the inferred dtype, device, rank, and shape.
+
+Empty `src` inputs still use the endpoint to infer the output Shape and validate
+broadcasting, monotonicity, and range. An empty `indptr` uses an endpoint of zero.
+
+**Implementation:**
+
+The Host layer validates arguments, materializes broadcast pointers, handles
+non-contiguous tensors, allocates output, and prepares tiling. The Ascend C
+Kernel selects `SegmentMajor` or `OutputMajor`. The former assigns
+`(batch, segment)` jobs to AIV cores; the latter partitions output rows when
+there are too few segments or one segment is heavily skewed. Aligned features
+use a 64 KB UB repeat buffer for batched writes, while other features use 16 KB
+tiles. The Kernel runs on the current PyTorch NPU stream.
+
+**Example:**
+
+```python
+import os
+import torch
+from ops_gnn import gather_csr
+
+device_id = int(os.environ.get("NPU_DEVICE_ID", 0))
+torch.npu.set_device(device_id)
+src = torch.tensor([[1, 2], [3, 4]], dtype=torch.float32, device="npu")
+indptr = torch.tensor([0, 2, 5], dtype=torch.int64, device="npu")
+out = gather_csr(src, indptr)
+# [[1, 2], [1, 2], [3, 4], [3, 4], [3, 4]]
+```
+
+**Build and test:**
+
+```bash
+source ${ASCEND_HOME_PATH}/bin/setenv.bash
+# Install torch_scatter >= 2.1.0 for the CPU reference.
+cmake -S . -B build/cmake_release \
+  -DNPU_ARCH=dav-3510 -DCMAKE_BUILD_TYPE=Release
+cmake --build build/cmake_release -j4
+export PYTHONPATH=$PWD/python
+export NPU_DEVICE_ID=0
+pytest -q test/gather_csr/test_gather_csr.py
+python test/gather_csr/verify_torch_scatter_reference.py
+python test/gather_csr/run_ascendoptest_gather_csr.py \
+  --ascendoptest-root /path/to/AscendOpTest
+python test/gather_csr/benchmark_gather_csr.py --warmup 20 --iterations 101
+```
+
+---
+
 ## 3. Testing Guide
 
 ### 3.1 Running Tests
@@ -542,6 +648,7 @@ pytest test/ -v
 
 # Run single operator test
 pytest test/test_example.py -v
+pytest test/gather_csr/test_gather_csr.py -v
 pytest test/segment_max_csr/test_segment_max_csr.py -v
 pytest test/graclus_cluster/test_graclus_functional.py -v
 python -m pytest test/gather_coo/test_gather_coo_functional.py -v
