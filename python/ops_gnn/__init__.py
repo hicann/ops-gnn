@@ -18,6 +18,8 @@ except ImportError:
 from .add_sample import add_sample
 from .graclus_cluster import graclus_cluster
 from .gather_coo import gather_coo
+from .ind2ptr import ind2ptr
+from .ptr2ind import ptr2ind
 from .random_walk import random_walk
 from .segment_max_csr import segment_max_csr
 from .typing import Tensor, OptTensor
@@ -30,6 +32,8 @@ __all__ = [
     'gather_coo',
     'random_walk',
     'segment_max_csr',
+    'ind2ptr',
+    'ptr2ind',
     'Tensor',
     'OptTensor',
 ]

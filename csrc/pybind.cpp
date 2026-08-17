@@ -15,6 +15,8 @@
 #include "host/random_walk/random_walk.h"
 #include "host/segment_max_csr/segment_max_csr.h"
 #include "host/graclus_cluster/graclus_cluster.h"
+#include "sparse/ind2ptr/op_host/ind2ptr.h"
+#include "sparse/ptr2ind/op_host/ptr2ind.h"
 
 namespace py = pybind11;
 
@@ -31,6 +33,10 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.def("graclus_cluster_npu", &graclus_cluster_npu, py::arg("rowptr"), py::arg("col"),
           py::arg("weight"), py::arg("node_perm"), py::arg("num_nodes"), py::arg("has_weight"),
           py::arg("weight_mode"), "Graclus greedy clustering core(NPU)");
+    m.def("ind2ptr", &ind2ptr, py::arg("ind"), py::arg("M"),
+          "Convert sorted row indices to CSR row pointer (NPU), same as torch_sparse.ind2ptr");
+    m.def("ptr2ind", &ptr2ind, py::arg("ptr"), py::arg("E"),
+          "Convert CSR row pointer to row indices (NPU), same as torch_sparse.ptr2ind");
     m.def(
         "gather_coo",
         [](torch::Tensor src, torch::Tensor index, py::object outObject) {

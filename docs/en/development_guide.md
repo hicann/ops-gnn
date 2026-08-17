@@ -126,28 +126,40 @@ ops-gnn
 │       │   └── segment_max_csr/
 │       │       ├── segment_max_csr.h
 │       │       └── segment_max_csr.cpp
-│       └── kernel/                 # AscendC kernel implementation (by operator)
-│           ├── add_sample/
-│           │   ├── add_sample_kernel.h   # Kernel Launch interface
-│           │   └── add_sample_kernel.cpp # Kernel implementation (AscendC SIMT)
-│           └── segment_max_csr/
-│               ├── segment_max_csr_kernel.h       # Kernel Launch interface
-│               ├── segment_max_csr_kernel.cpp     # Kernel entry + template instantiation
-│               ├── segment_max_csr_kernel_impl.h  # Kernel core implementation class
-│               └── segment_max_csr_tiling.h       # Tiling data structure
-├── docs/                           # Documentation
+│       ├── kernel/                 # AscendC kernel implementation (by operator)
+│       │   ├── add_sample/
+│       │   │   ├── add_sample_kernel.h   # Kernel Launch interface
+│       │   │   └── add_sample_kernel.cpp # Kernel implementation (AscendC SIMT)
+│       │   └── segment_max_csr/
+│       │       ├── segment_max_csr_kernel.h       # Kernel Launch interface
+│       │       ├── segment_max_csr_kernel.cpp     # Kernel entry + template instantiation
+│       │       ├── segment_max_csr_kernel_impl.h  # Kernel core implementation class
+│       │       └── segment_max_csr_tiling.h       # Tiling data structure
+│       └── sparse/                 # sparse operators (one subdirectory per op)
+│           ├── ind2ptr/
+│           │   ├── op_host/       # Host dispatch
+│           │   └── op_kernel/
+│           │       └── arch35/    # Ascend950 Kernel
+│           └── ptr2ind/
+│               ├── op_host/
+│               └── op_kernel/
+│                   └── arch35/
+├── docs/                           # Docs (API reference: docs/*/api_reference.md)
 ├── python/                         # Python source code
 │   └── ops_gnn/                    # Python package
 │       ├── __init__.py             # Package init, export list
 │       ├── add_sample.py           # add_sample Python interface
+│       ├── ind2ptr.py              # ind2ptr Python interface
+│       ├── ptr2ind.py              # ptr2ind Python interface
 │       ├── segment_max_csr.py      # segment_max_csr Python interface
 │       └── typing.py               # Type alias definitions
-├── test/                           # Test directory
+├── test/                           # Tests (triggered by ./scripts/build.sh test)
 │   ├── test_import.py              # Import verification test
 │   ├── test_example.py             # add_sample operator test
-│   └── test_segment_max_csr.py     # segment_max_csr operator test
+│   ├── test_segment_max_csr.py     # segment_max_csr operator test
+│   └── sparse/                     # sparse operator tests (ind2ptr/ptr2ind)
 ├── scripts/                        # Build scripts
-│   └── build.sh                    # Unified build script (python/cpp/all)
+│   └── build.sh                    # Unified build/test script (python/cpp/all/test)
 ├── cmake/                          # CMake configuration
 │   └── OpsGNNConfig.cmake.in       # CMake package config template
 ├── CMakeLists.txt                  # CMake build configuration

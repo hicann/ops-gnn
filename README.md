@@ -12,14 +12,26 @@ ops-gnn/
 │   ├── pybind.cpp              # PyTorch绑定代码
 │   └── npu/                    # NPU相关代码
 │       ├── host/               # Host端代码（按算子分类）
-│       └── kernel/             # AscendC内核实现（按算子分类）
-├── docs/                       # 文档目录
+│       ├── kernel/             # AscendC内核实现（按算子分类）
+│       └── sparse/             # sparse 算子（按算子分子目录）
+│           ├── ind2ptr/
+│           │   ├── op_host/   # Host 调度
+│           │   └── op_kernel/
+│           │       └── arch35/  # Ascend950 Kernel
+│           └── ptr2ind/
+│               ├── op_host/
+│               └── op_kernel/
+│                   └── arch35/
+├── docs/                       # 文档目录（API 说明见 docs/*/api_reference.md）
 ├── python/                     # Python源码目录
 │   └── ops_gnn/                # Python包目录
 │       ├── __init__.py         # 包初始化文件
 │       ├── add_sample.py       # Python接口声明
 │       ├── gather_coo.py       # Python接口声明
+│       ├── ind2ptr.py          # ind2ptr Python 接口
+│       ├── ptr2ind.py          # ptr2ind Python 接口
 │       ├── random_walk.py      # 随机游走 Python 接口
+│       ├── graclus_cluster.py  # Graclus 聚类 Python 接口
 │       ├── segment_max_csr.py  # Python接口声明
 │       └── typing.py           # 类型定义
 ├── test/                       # 测试目录
@@ -123,6 +135,11 @@ indptr = torch.tensor([0, 2, 4], dtype=torch.int32, device='npu')
 result = ops_gnn.segment_max_csr(src, indptr)
 print(result)  # 输出: tensor([[3, 4], [7, 8]], device='npu:0')
 
+# torch_sparse 兼容：row indices <-> CSR rowptr
+row = torch.tensor([2, 2, 4, 5, 5, 6], dtype=torch.long, device='npu')
+rowptr = ops_gnn.ind2ptr(row, 8)          # 替换 torch.ops.torch_sparse.ind2ptr(row, 8)
+row2 = ops_gnn.ptr2ind(rowptr, 6)         # 替换 torch.ops.torch_sparse.ptr2ind(rowptr, 6)
+
 # COO 行扩展；index 必须为有序 int64
 src = torch.arange(20, dtype=torch.float32, device='npu').reshape(5, 4)
 index = torch.tensor([0, 1, 1, 4], dtype=torch.int64, device='npu')
@@ -139,6 +156,8 @@ print(result.shape)  # 输出: torch.Size([4, 4])
 | `random_walk` | COO 图上的均匀或 node2vec 偏置随机游走 | NPU |
 | `segment_max_csr` | CSR 格式的分段最大值运算 | NPU |
 | `graclus_cluster` | 图贪心聚类 | NPU / CPU float64 回退 |
+| `ind2ptr` | 有序行索引转 CSR 行指针（对齐 torch_sparse） | NPU |
+| `ptr2ind` | CSR 行指针转行索引（对齐 torch_sparse） | NPU |
 
 ## 开发指南
 

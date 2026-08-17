@@ -45,6 +45,7 @@ ${BLUE}ops-gnn 构建脚本${NC}
     python           构建 Python 包 (默认)
     cpp              构建 C++ 二进制文件
     all              同时构建 Python 包和 C++ 二进制
+    test             运行代码仓整体测试 (pytest test/，含 sparse 等算子用例)
 
 选项:
     -t, --type TYPE      构建类型 (Debug/Release) [默认: Release]
@@ -68,6 +69,9 @@ ${BLUE}ops-gnn 构建脚本${NC}
 
     # C++ 构建时禁用 Python 绑定
     $0 cpp --no-python
+
+    # 运行整体测试（自动发现 test/ 下全部用例，含 test/sparse/）
+    $0 test
 
 EOF
     exit "${1:-0}"
@@ -98,7 +102,7 @@ CLEAN_BUILD="OFF"
 
 while [[ $# -gt 0 ]]; do
     case $1 in
-        python|cpp|all)
+        python|cpp|all|test)
             BUILD_TARGET="$1"
             shift
             ;;
@@ -254,7 +258,35 @@ build_python() {
     fi
 
     log_info "Python 包构建完成!"
-    log_info "运行测试: $PYTHON_CMD -m pytest test/"
+    log_info "运行整体测试: $0 test  或  $PYTHON_CMD -m pytest test/"
+}
+
+###############################################################################
+# 运行代码仓整体测试
+###############################################################################
+run_tests() {
+    log_info "开始运行代码仓整体测试 (pytest test/)..."
+    cd "$PROJECT_ROOT"
+
+    if [ -z "${PYTHON_CMD:-}" ]; then
+        if command -v python3 &> /dev/null; then
+            PYTHON_CMD="python3"
+        elif command -v python &> /dev/null; then
+            PYTHON_CMD="python"
+        else
+            log_error "未找到 Python 解释器"
+        fi
+    fi
+
+    export PYTHONPATH="${PROJECT_ROOT}/python:${PYTHONPATH:-}"
+
+    # 统一入口：自动发现 test/ 下全部用例（含 test/sparse/），
+    # 不单独暴露顶层 sparse 测试接口。
+    if ! $PYTHON_CMD -m pytest test/ -v; then
+        log_error "整体测试失败"
+    fi
+
+    log_info "整体测试完成!"
 }
 
 ###############################################################################
@@ -327,9 +359,16 @@ main() {
             log_info ""
             build_cpp
             ;;
+        test)
+            run_tests
+            ;;
     esac
 
-    log_info "构建完成!"
+    if [ "$BUILD_TARGET" = "test" ]; then
+        log_info "测试流程结束!"
+    else
+        log_info "构建完成!"
+    fi
 }
 
 main

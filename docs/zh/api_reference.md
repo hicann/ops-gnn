@@ -334,7 +334,97 @@ assert returned.data_ptr() == provided.data_ptr()
 
 ---
 
-### 2.5 random_walk — NPU 随机游走
+### 2.5 ind2ptr — 行索引转 CSR 行指针
+
+**函数签名：**
+
+```python
+def ind2ptr(
+    ind: Tensor,
+    num_rows: int,
+) -> Tensor:
+```
+
+**参数说明：**
+
+| 参数 | 类型 | 输入/输出 | 说明 |
+|------|------|------|------|
+| ind | Tensor | 输入 | 1-D `torch.long` 非降序行索引，必须位于 NPU |
+| num_rows | int | 输入 | 行数（对应 torch_sparse 中的 `M`），输出长度为 `num_rows + 1` |
+
+**返回值说明：**
+
+返回 1-D `torch.long` CSR 行指针，形状为 `[num_rows + 1]`，与输入同 device。
+
+**功能说明：**
+
+将有序行索引转换为 CSR 行指针，API 对齐 `torch.ops.torch_sparse.ind2ptr(ind, M)`。在当前 NPU stream 上异步执行；如需在 Host 读取结果，请先 `torch.npu.synchronize()`。
+
+**注意事项：**
+
+- `ind` 须为非降序；空输入返回全 0 的 `[num_rows + 1]`
+- dtype 为 `torch.long`（int64）
+- 非连续输入会在调用前转为连续张量
+
+**使用示例：**
+
+```python
+import torch
+import ops_gnn
+
+row = torch.tensor([2, 2, 4, 5, 5, 6], dtype=torch.long, device='npu')
+rowptr = ops_gnn.ind2ptr(row, 8)
+# tensor([0, 0, 0, 2, 2, 3, 5, 6, 6], device='npu:0')
+```
+
+---
+
+### 2.6 ptr2ind — CSR 行指针转行索引
+
+**函数签名：**
+
+```python
+def ptr2ind(
+    ptr: Tensor,
+    num_edges: int,
+) -> Tensor:
+```
+
+**参数说明：**
+
+| 参数 | 类型 | 输入/输出 | 说明 |
+|------|------|------|------|
+| ptr | Tensor | 输入 | 1-D `torch.long` CSR 行指针，长度 `num_rows + 1`，必须位于 NPU |
+| num_edges | int | 输入 | 边数 / 非零元个数（对应 torch_sparse 中的 `E`），输出长度为 `num_edges` |
+
+**返回值说明：**
+
+返回 1-D `torch.long` 行索引，形状为 `[num_edges]`，与输入同 device。
+
+**功能说明：**
+
+将 CSR 行指针转换为行索引，API 对齐 `torch.ops.torch_sparse.ptr2ind(ptr, E)`。在当前 NPU stream 上异步执行；如需在 Host 读取结果，请先 `torch.npu.synchronize()`。
+
+**注意事项：**
+
+- dtype 为 `torch.long`（int64）
+- `num_edges == 0` 时返回空索引张量
+- 非连续输入会在调用前转为连续张量
+
+**使用示例：**
+
+```python
+import torch
+import ops_gnn
+
+rowptr = torch.tensor([0, 0, 0, 2, 2, 3, 5, 6, 6], dtype=torch.long, device='npu')
+row = ops_gnn.ptr2ind(rowptr, 6)
+# tensor([2, 2, 4, 5, 5, 6], device='npu:0')
+```
+
+---
+
+### 2.7 random_walk — NPU 随机游走
 
 **函数签名：**
 
@@ -430,6 +520,7 @@ pytest test/test_segment_max_csr.py -v
 pytest test/graclus_cluster/test_graclus_functional.py -v
 python -m pytest test/gather_coo/test_gather_coo_functional.py -v
 pytest test/random_walk -v
+pytest test/sparse -v
 
 # 运行 random_walk 性能测试
 python test/random_walk/benchmark.py --device npu:0

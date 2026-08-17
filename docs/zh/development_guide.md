@@ -123,28 +123,40 @@ ops-gnn
 │       │   └── segment_max_csr/
 │       │       ├── segment_max_csr.h
 │       │       └── segment_max_csr.cpp
-│       └── kernel/                 # AscendC 内核实现（按算子分类）
-│           ├── add_sample/
-│           │   ├── add_sample_kernel.h   # Kernel Launch 接口
-│           │   └── add_sample_kernel.cpp # Kernel 实现（AscendC SIMT）
-│           └── segment_max_csr/
-│               ├── segment_max_csr_kernel.h       # Kernel Launch 接口
-│               ├── segment_max_csr_kernel.cpp     # Kernel 入口 + 模板实例化
-│               ├── segment_max_csr_kernel_impl.h  # Kernel 核心实现类
-│               └── segment_max_csr_tiling.h       # Tiling 数据结构
-├── docs/                           # 文档目录
+│       ├── kernel/                 # AscendC 内核实现（按算子分类）
+│       │   ├── add_sample/
+│       │   │   ├── add_sample_kernel.h   # Kernel Launch 接口
+│       │   │   └── add_sample_kernel.cpp # Kernel 实现（AscendC SIMT）
+│       │   └── segment_max_csr/
+│       │       ├── segment_max_csr_kernel.h       # Kernel Launch 接口
+│       │       ├── segment_max_csr_kernel.cpp     # Kernel 入口 + 模板实例化
+│       │       ├── segment_max_csr_kernel_impl.h  # Kernel 核心实现类
+│       │       └── segment_max_csr_tiling.h       # Tiling 数据结构
+│       └── sparse/                 # sparse 算子（按算子分子目录）
+│           ├── ind2ptr/
+│           │   ├── op_host/       # Host 调度
+│           │   └── op_kernel/
+│           │       └── arch35/    # Ascend950 Kernel
+│           └── ptr2ind/
+│               ├── op_host/
+│               └── op_kernel/
+│                   └── arch35/
+├── docs/                           # 文档目录（API 说明见 docs/*/api_reference.md）
 ├── python/                         # Python 源码目录
 │   └── ops_gnn/                    # Python 包目录
 │       ├── __init__.py             # 包初始化、导出列表
 │       ├── add_sample.py           # add_sample Python 接口
+│       ├── ind2ptr.py              # ind2ptr Python 接口
+│       ├── ptr2ind.py              # ptr2ind Python 接口
 │       ├── segment_max_csr.py      # segment_max_csr Python 接口
 │       └── typing.py               # 类型别名定义
-├── test/                           # 测试目录
+├── test/                           # 测试目录（./scripts/build.sh test 统一触发）
 │   ├── test_import.py              # 导入验证测试
 │   ├── test_example.py             # add_sample 算子测试
-│   └── test_segment_max_csr.py     # segment_max_csr 算子测试
+│   ├── test_segment_max_csr.py     # segment_max_csr 算子测试
+│   └── sparse/                     # sparse 算子用例（ind2ptr/ptr2ind）
 ├── scripts/                        # 构建脚本目录
-│   └── build.sh                    # 统一构建脚本（支持 python/cpp/all）
+│   └── build.sh                    # 统一构建/测试脚本（python/cpp/all/test）
 ├── cmake/                          # CMake 配置
 │   └── OpsGNNConfig.cmake.in       # CMake 包配置模板
 ├── CMakeLists.txt                  # CMake 构建配置

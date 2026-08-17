@@ -359,7 +359,97 @@ assert returned.data_ptr() == provided.data_ptr()
 
 ---
 
-### 2.5 random_walk — NPU Random Walk
+### 2.5 ind2ptr — Sorted Row Indices to CSR Row Pointer
+
+**Function signature:**
+
+```python
+def ind2ptr(
+    ind: Tensor,
+    num_rows: int,
+) -> Tensor:
+```
+
+**Parameters:**
+
+| Parameter | Type | I/O | Description |
+|-----------|------|-----|-------------|
+| ind | Tensor | Input | 1-D `torch.long` non-decreasing row indices on NPU |
+| num_rows | int | Input | Number of rows (historically `M` in torch_sparse); output length is `num_rows + 1` |
+
+**Returns:**
+
+A 1-D `torch.long` CSR row-pointer tensor of shape `[num_rows + 1]` on the same device as `ind`.
+
+**Description:**
+
+Converts sorted row indices to a CSR row pointer. Drop-in replacement for `torch.ops.torch_sparse.ind2ptr(ind, M)`. Runs asynchronously on the current NPU stream; synchronize with `torch.npu.synchronize()` before reading results on host if needed.
+
+**Notes:**
+
+- `ind` must be non-decreasing; an empty input yields an all-zero pointer of length `num_rows + 1`
+- dtype must be `torch.long` (int64)
+- Non-contiguous inputs are made contiguous before the call
+
+**Example:**
+
+```python
+import torch
+import ops_gnn
+
+row = torch.tensor([2, 2, 4, 5, 5, 6], dtype=torch.long, device='npu')
+rowptr = ops_gnn.ind2ptr(row, 8)
+# tensor([0, 0, 0, 2, 2, 3, 5, 6, 6], device='npu:0')
+```
+
+---
+
+### 2.6 ptr2ind — CSR Row Pointer to Row Indices
+
+**Function signature:**
+
+```python
+def ptr2ind(
+    ptr: Tensor,
+    num_edges: int,
+) -> Tensor:
+```
+
+**Parameters:**
+
+| Parameter | Type | I/O | Description |
+|-----------|------|-----|-------------|
+| ptr | Tensor | Input | 1-D `torch.long` CSR row pointer of length `num_rows + 1` on NPU |
+| num_edges | int | Input | Number of edges / non-zeros (historically `E` in torch_sparse); output length is `num_edges` |
+
+**Returns:**
+
+A 1-D `torch.long` row-index tensor of shape `[num_edges]` on the same device as `ptr`.
+
+**Description:**
+
+Converts a CSR row pointer to row indices. Drop-in replacement for `torch.ops.torch_sparse.ptr2ind(ptr, E)`. Runs asynchronously on the current NPU stream; synchronize with `torch.npu.synchronize()` before reading results on host if needed.
+
+**Notes:**
+
+- dtype must be `torch.long` (int64)
+- `num_edges == 0` returns an empty index tensor
+- Non-contiguous inputs are made contiguous before the call
+
+**Example:**
+
+```python
+import torch
+import ops_gnn
+
+rowptr = torch.tensor([0, 0, 0, 2, 2, 3, 5, 6, 6], dtype=torch.long, device='npu')
+row = ops_gnn.ptr2ind(rowptr, 6)
+# tensor([2, 2, 4, 5, 5, 6], device='npu:0')
+```
+
+---
+
+### 2.7 random_walk — NPU Random Walk
 
 **Function Signature:**
 
@@ -456,6 +546,7 @@ pytest test/test_segment_max_csr.py -v
 pytest test/graclus_cluster/test_graclus_functional.py -v
 python -m pytest test/gather_coo/test_gather_coo_functional.py -v
 pytest test/random_walk -v
+pytest test/sparse -v
 
 # Run the random_walk performance benchmark
 python test/random_walk/benchmark.py --device npu:0

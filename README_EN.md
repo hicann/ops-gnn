@@ -12,13 +12,24 @@ ops-gnn/
 │   ├── pybind.cpp              # PyTorch binding code
 │   └── npu/                    # NPU-related code
 │       ├── host/               # Host-side code (organized by operator)
-│       └── kernel/             # AscendC kernel implementation (organized by operator)
-├── docs/                       # Documentation directory
+│       ├── kernel/             # AscendC kernel implementation (organized by operator)
+│       └── sparse/             # sparse operators (one subdirectory per op)
+│           ├── ind2ptr/
+│           │   ├── op_host/   # Host dispatch
+│           │   └── op_kernel/
+│           │       └── arch35/  # Ascend950 Kernel
+│           └── ptr2ind/
+│               ├── op_host/
+│               └── op_kernel/
+│                   └── arch35/
+├── docs/                       # Docs (API reference: docs/*/api_reference.md)
 ├── python/                     # Python source code
 │   └── ops_gnn/                # Python package
 │       ├── __init__.py         # Package initialization
 │       ├── add_sample.py       # Python interface declaration
 │       ├── gather_coo.py       # Python interface declaration
+│       ├── ind2ptr.py          # ind2ptr Python interface
+│       ├── ptr2ind.py          # ptr2ind Python interface
 │       ├── random_walk.py      # Random-walk Python interface
 │       ├── segment_max_csr.py  # Python interface declaration
 │       └── typing.py           # Type definitions
@@ -139,6 +150,8 @@ print(result.shape)  # output: torch.Size([4, 4])
 | `random_walk` | Uniform or node2vec-biased random walks on COO graphs | NPU |
 | `segment_max_csr` | Segmented max reduction on CSR format | NPU |
 | `graclus_cluster` | Greedy graph clustering | NPU / CPU fallback for float64 |
+| `ind2ptr` | Sorted row indices to CSR row pointer (torch_sparse-aligned) | NPU |
+| `ptr2ind` | CSR row pointer to row indices (torch_sparse-aligned) | NPU |
 
 ## Development Guide
 

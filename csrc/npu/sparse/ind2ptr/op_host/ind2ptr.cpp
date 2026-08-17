@@ -1,0 +1,38 @@
+/**
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+#include "ind2ptr/op_host/ind2ptr.h"
+#include "ind2ptr/op_kernel/arch35/ind2ptr_kernel.h"
+
+#include "torch_npu/csrc/core/npu/NPUGuard.h"
+#include "torch_npu/csrc/core/npu/NPUStream.h"
+
+// Launch AscendC kernel on the current NPU stream and return (async).
+torch::Tensor ind2ptr(torch::Tensor ind, int64_t M)
+{
+    TORCH_CHECK(ind.dim() == 1, "ind2ptr: ind must be 1-D");
+    TORCH_CHECK(ind.scalar_type() == at::kLong, "ind2ptr: ind must be int64 (torch.long)");
+    TORCH_CHECK(M >= 0, "ind2ptr: M must be non-negative");
+
+    c10_npu::OptionalNPUGuard device_guard(ind.device());
+
+    auto out = torch::empty({M + 1}, ind.options());
+    if (ind.numel() == 0) {
+        return out.zero_();
+    }
+
+    if (!ind.is_contiguous()) {
+        ind = ind.contiguous();
+    }
+
+    auto stream = c10_npu::getCurrentNPUStream(ind.device().index());
+    LaunchInd2PtrKernel(ind.data_ptr<int64_t>(), out.data_ptr<int64_t>(), M, ind.numel(), stream);
+    return out;
+}

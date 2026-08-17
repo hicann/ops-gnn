@@ -217,6 +217,8 @@ message(STATUS "Found Torch NPU: ${TORCH_NPU_INSTALL_PREFIX}")
 file(GLOB_RECURSE NPU_ASC_FILES 
     csrc/npu/kernel/*.asc 
     csrc/npu/kernel/*.cpp
+    csrc/npu/sparse/*/op_kernel/arch35/*.asc
+    csrc/npu/sparse/*/op_kernel/arch35/*.cpp
 )
 file(GLOB_RECURSE NPU_KERNEL_HEADERS
     csrc/npu/kernel/*.h
@@ -224,6 +226,7 @@ file(GLOB_RECURSE NPU_KERNEL_HEADERS
 
 file(GLOB_RECURSE NPU_CPP_INTERFACE_FILES 
     csrc/npu/host/*.cpp
+    csrc/npu/sparse/*/op_host/*.cpp
 )
 
 set(OPERATOR_SOURCES
@@ -262,6 +265,7 @@ if(NPU_ASC_FILES)
             "-I${CMAKE_CURRENT_SOURCE_DIR}/csrc"
             "-I${CMAKE_CURRENT_SOURCE_DIR}/csrc/npu"
             "-I${CMAKE_CURRENT_SOURCE_DIR}/csrc/npu/kernel"
+            "-I${CMAKE_CURRENT_SOURCE_DIR}/csrc/npu/sparse"
         )
 
         add_custom_command(
@@ -322,6 +326,7 @@ target_include_directories(_pybind PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/csrc/npu
     ${CMAKE_CURRENT_SOURCE_DIR}/csrc/npu/host
     ${CMAKE_CURRENT_SOURCE_DIR}/csrc/npu/kernel
+    ${CMAKE_CURRENT_SOURCE_DIR}/csrc/npu/sparse
     ${TORCH_INCLUDE_DIRS}
     ${TORCH_INCLUDE_DIRS}/pybind11
     ${TORCH_NPU_INCLUDE_DIR}
