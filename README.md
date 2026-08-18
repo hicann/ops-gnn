@@ -162,6 +162,7 @@ print(result.shape)  # torch.Size([5, 2])
 | [`gather_csr`](docs/zh/api_reference.md) | 按 CSR 指针展开 segment 特征 | NPU |
 | `random_walk` | COO 图上的均匀或 node2vec 偏置随机游走 | NPU |
 | `segment_max_csr` | CSR 格式的分段最大值运算 | NPU |
+| `radius` / `radius_graph` | 半径内邻居搜索（torch_cluster 兼容，Ascend 950PR） | NPU |
 | `graclus_cluster` | 图贪心聚类 | NPU / CPU float64 回退 |
 | `ind2ptr` | 有序行索引转 CSR 行指针（对齐 torch_sparse） | NPU |
 | `ptr2ind` | CSR 行指针转行索引（对齐 torch_sparse） | NPU |

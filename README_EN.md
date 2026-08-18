@@ -156,6 +156,7 @@ print(result.shape)  # torch.Size([5, 2])
 | [`gather_csr`](docs/en/api_reference.md) | Expands segment features using CSR pointers | NPU |
 | `random_walk` | Uniform or node2vec-biased random walks on COO graphs | NPU |
 | `segment_max_csr` | Segmented max reduction on CSR format | NPU |
+| `radius` / `radius_graph` | Radius neighbor search (torch_cluster compatible, Ascend 950PR) | NPU |
 | `graclus_cluster` | Greedy graph clustering | NPU / CPU fallback for float64 |
 | `ind2ptr` | Sorted row indices to CSR row pointer (torch_sparse-aligned) | NPU |
 | `ptr2ind` | CSR row pointer to row indices (torch_sparse-aligned) | NPU |

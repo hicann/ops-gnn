@@ -250,7 +250,62 @@ result = ops_gnn.segment_max_csr(src, indptr)
 
 ---
 
-### 2.3 图贪心聚类接口
+### 2.3 radius / radius_graph — 半径内邻居搜索
+
+与 `torch_cluster.radius` / `radius_graph`（>= 1.6.0）接口完全一致的 NPU 实现，
+Ascend 950PR。对 `y` 中每个查询点，在 `x` 中查找欧氏距离 `dist² <= r²` 的所有
+邻居（同 batch 内），超过 `max_num_neighbors` 时保留扫描顺序前 K 个（确定性）。
+输出 `edge_index [2, E]`（int64）。
+
+```python
+def radius(
+    x, y, r,
+    batch_x=None, batch_y=None,
+    max_num_neighbors=32, num_workers=1,
+    batch_size=None, ignore_same_index=False,
+) -> torch.Tensor          # [2, E] int64
+
+def radius_graph(
+    x, r,
+    batch=None, loop=False,
+    max_num_neighbors=32,
+    flow='source_to_target', num_workers=1, batch_size=None,
+) -> torch.Tensor          # [2, E] int64
+```
+
+| 参数 | 类型 | 输入/输出 | 描述 |
+|------|------|-----------|------|
+| `x` | Tensor [N,F] | 输入 | 邻居候选点集（float16/bf16/float32；float64 走 CPU 回退） |
+| `y` | Tensor [M,F] | 输入 | 查询点集 |
+| `r` | float | 输入 | 搜索半径（>0） |
+| `batch_x` / `batch_y` | Tensor | 输入 | batch 归属（需已排序） |
+| `max_num_neighbors` | int | 输入 | 每查询保留的邻居上限（默认 32） |
+| `ignore_same_index` | bool | 输入 | 跳过 `i == q` 自环 |
+| `loop` / `flow` | bool/str | 输入 | radius_graph 自环与方向语义 |
+
+```python
+x = torch.randn(1000, 3, device='npu')
+edge = ops_gnn.radius(x, x, 0.8)          # 找半径 0.8 内的邻居
+edge_g = ops_gnn.radius_graph(x, 0.8)     # 构建 K-NN 图（默认 loop=False）
+```
+
+**实现架构：**
+
+- **Kernel 模式**：Ascend C SIMT（`__simt_vf__` + `VF_CALL`），空间网格剪枝 + 排序数组 top-K + early-break
+- **网格构建**：device 端完成（min/max、cell、sort、index_select、offsets），免 CPU sort 瓶颈
+- **输出压缩**：device 端 `repeat_interleave` + `masked_select` 压缩为 `[2, E]`
+- **适用场景**：3D 点云/GNN 邻域构图（PointNet++、DGCNN 等）
+
+**注意事项：**
+
+- `x` / `y` 须为同一 NPU 设备上的 Tensor（`device='npu'`），`F` 一致；非连续输入会在 host 入口自动连续化
+- `batch_x` / `batch_y` 须 sorted；搜索限定在同一 batch 内
+- 邻居数超过 `max_num_neighbors` 时保留扫描顺序前 K 个（确定性截断，与 CPU 参考一致）
+- `radius_graph` 的 `loop` / `flow` 语义与 `torch_cluster` 一致
+- L1 支持 float16 / bfloat16 / float32（NPU 路径）；float64 走 CPU 回退（bit-wise，不参与性能考核）
+- 空输入返回 `[2, 0]` LongTensor，不进入 kernel
+
+### 2.4 图贪心聚类接口
 
 **函数签名：**
 
@@ -287,7 +342,7 @@ Python 层复现 `torch_cluster.graclus_cluster` 预处理：推断 `num_nodes`�
 - 算法包含随机性；固定 `torch.manual_seed` 后结果可复现。
 - 自环会在 Python 层去除。
 
-### 2.4 gather_coo — COO 行扩展
+### 2.5 gather_coo — COO 行扩展
 
 **函数签名：**
 
@@ -334,7 +389,7 @@ assert returned.data_ptr() == provided.data_ptr()
 
 ---
 
-### 2.5 ind2ptr — 行索引转 CSR 行指针
+### 2.6 ind2ptr — 行索引转 CSR 行指针
 
 **函数签名：**
 
@@ -379,7 +434,7 @@ rowptr = ops_gnn.ind2ptr(row, 8)
 
 ---
 
-### 2.6 ptr2ind — CSR 行指针转行索引
+### 2.7 ptr2ind — CSR 行指针转行索引
 
 **函数签名：**
 
@@ -424,7 +479,7 @@ row = ops_gnn.ptr2ind(rowptr, 6)
 
 ---
 
-### 2.7 random_walk — NPU 随机游走
+### 2.8 random_walk — NPU 随机游走
 
 **函数签名：**
 
@@ -506,7 +561,7 @@ assert edges.shape == (2, 8)
 
 ---
 
-### 2.5 gather_csr - CSR 分段展开
+### 2.9 gather_csr - CSR 分段展开
 
 **函数签名：**
 
@@ -622,10 +677,14 @@ pytest test/segment_max_csr/test_segment_max_csr.py -v
 pytest test/graclus_cluster/test_graclus_functional.py -v
 python -m pytest test/gather_coo/test_gather_coo_functional.py -v
 pytest test/random_walk -v
+pytest test/radius -v
 pytest test/sparse -v
 
 # 运行 random_walk 性能测试
 python test/random_walk/benchmark.py --device npu:0
+
+# 运行 radius 官方标杆性能测试
+python test/radius/benchmark_radius.py
 
 # 运行单个测试用例
 pytest test/segment_max_csr/test_segment_max_csr.py::test_segment_max_csr_basic -v

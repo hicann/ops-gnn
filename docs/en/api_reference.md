@@ -250,7 +250,63 @@ result = ops_gnn.segment_max_csr(src, indptr)
 
 ---
 
-### 2.3 graclus_cluster - Greedy Graph Clustering
+### 2.3 radius / radius_graph — Radius Neighbor Search
+
+NPU implementation interface-compatible with `torch_cluster.radius` /
+`radius_graph` (>= 1.6.0), Ascend 950PR. For each query point in `y`, finds all
+neighbors in `x` with Euclidean distance `dist² <= r²` (within the same batch);
+when the count exceeds `max_num_neighbors`, keeps the first K in scan order
+(deterministic). Outputs `edge_index [2, E]` (int64).
+
+```python
+def radius(
+    x, y, r,
+    batch_x=None, batch_y=None,
+    max_num_neighbors=32, num_workers=1,
+    batch_size=None, ignore_same_index=False,
+) -> torch.Tensor          # [2, E] int64
+
+def radius_graph(
+    x, r,
+    batch=None, loop=False,
+    max_num_neighbors=32,
+    flow='source_to_target', num_workers=1, batch_size=None,
+) -> torch.Tensor          # [2, E] int64
+```
+
+| Parameter | Type | In/Out | Description |
+|-----------|------|--------|-------------|
+| `x` | Tensor [N,F] | in | Neighbor candidate set (float16/bf16/float32; float64 via CPU fallback) |
+| `y` | Tensor [M,F] | in | Query point set |
+| `r` | float | in | Search radius (>0) |
+| `batch_x` / `batch_y` | Tensor | in | Batch membership (must be sorted) |
+| `max_num_neighbors` | int | in | Max neighbors per query (default 32) |
+| `ignore_same_index` | bool | in | Skip `i == q` self-loops |
+| `loop` / `flow` | bool/str | in | radius_graph self-loop and direction semantics |
+
+```python
+x = torch.randn(1000, 3, device='npu')
+edge = ops_gnn.radius(x, x, 0.8)          # neighbors within radius 0.8
+edge_g = ops_gnn.radius_graph(x, 0.8)     # build K-NN graph (loop=False by default)
+```
+
+**Implementation architecture:**
+
+- **Kernel mode**: Ascend C SIMT (`__simt_vf__` + `VF_CALL`), spatial-grid pruning + sorted-array top-K + early-break
+- **Grid build**: executed on device (min/max, cell, sort, index_select, offsets), avoiding CPU sort bottleneck
+- **Output compaction**: device-side `repeat_interleave` + `masked_select` into `[2, E]`
+- **Use case**: 3D point-cloud / GNN neighborhood construction (PointNet++, DGCNN, etc.)
+
+**Notes:**
+
+- `x` / `y` must be tensors on the same NPU device, with matching feature dim `F`; non-contiguous inputs are made contiguous internally
+- `batch_x` / `batch_y` must be sorted; search is confined within each batch
+- Exceeding `max_num_neighbors` keeps first K in scan order (deterministic, consistent with CPU reference)
+- `radius_graph` `loop` / `flow` semantics match `torch_cluster`
+- L1: float16 / bfloat16 / float32 (NPU); float64 via CPU fallback (bit-wise, not performance-tested)
+- Empty input returns `[2, 0]` LongTensor without entering the kernel
+
+### 2.4 graclus_cluster - Greedy Graph Clustering
 
 **Function Signature:**
 
@@ -312,7 +368,7 @@ assert cluster.device.type == "npu"
 assert cluster.shape == (3,)
 ```
 
-### 2.4 gather_coo — COO Row Expansion
+### 2.5 gather_coo — COO Row Expansion
 
 **Function signature:**
 
@@ -359,7 +415,7 @@ assert returned.data_ptr() == provided.data_ptr()
 
 ---
 
-### 2.5 ind2ptr — Sorted Row Indices to CSR Row Pointer
+### 2.6 ind2ptr — Sorted Row Indices to CSR Row Pointer
 
 **Function signature:**
 
@@ -404,7 +460,7 @@ rowptr = ops_gnn.ind2ptr(row, 8)
 
 ---
 
-### 2.6 ptr2ind — CSR Row Pointer to Row Indices
+### 2.7 ptr2ind — CSR Row Pointer to Row Indices
 
 **Function signature:**
 
@@ -449,7 +505,7 @@ row = ops_gnn.ptr2ind(rowptr, 6)
 
 ---
 
-### 2.7 random_walk — NPU Random Walk
+### 2.8 random_walk — NPU Random Walk
 
 **Function Signature:**
 
@@ -532,7 +588,7 @@ assert edges.shape == (2, 8)
 
 ---
 
-### 2.5 gather_csr - CSR Segment Expansion
+### 2.9 gather_csr - CSR Segment Expansion
 
 **Signature:**
 
@@ -653,10 +709,14 @@ pytest test/segment_max_csr/test_segment_max_csr.py -v
 pytest test/graclus_cluster/test_graclus_functional.py -v
 python -m pytest test/gather_coo/test_gather_coo_functional.py -v
 pytest test/random_walk -v
+pytest test/radius -v
 pytest test/sparse -v
 
 # Run the random_walk performance benchmark
 python test/random_walk/benchmark.py --device npu:0
+
+# Run the radius official-baseline performance benchmark
+python test/radius/benchmark_radius.py
 
 # Run single test case
 pytest test/segment_max_csr/test_segment_max_csr.py::test_segment_max_csr_basic -v

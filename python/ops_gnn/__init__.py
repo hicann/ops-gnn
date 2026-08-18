@@ -23,6 +23,7 @@ from .ind2ptr import ind2ptr
 from .ptr2ind import ptr2ind
 from .random_walk import random_walk
 from .segment_max_csr import segment_max_csr
+from .radius import radius, radius_graph
 from .typing import Tensor, OptTensor
 
 __version__ = '0.1.0'
@@ -36,6 +37,8 @@ __all__ = [
     'segment_max_csr',
     'ind2ptr',
     'ptr2ind',
+    'radius',
+    'radius_graph',
     'Tensor',
     'OptTensor',
 ]

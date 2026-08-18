@@ -15,6 +15,7 @@
 #include "host/gather_csr/gather_csr.h"
 #include "host/random_walk/random_walk.h"
 #include "host/segment_max_csr/segment_max_csr.h"
+#include "host/radius/radius.h"
 #include "host/graclus_cluster/graclus_cluster.h"
 #include "sparse/ind2ptr/op_host/ind2ptr.h"
 #include "sparse/ptr2ind/op_host/ptr2ind.h"
@@ -33,6 +34,12 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
           py::arg("out") = py::none(), "Gather CSR (NPU)");
     m.def("segment_max_csr", &segment_max_csr, py::arg("src"), py::arg("indptr"),
           py::arg("optional_out") = torch::Tensor(), "Segment max csr(NPU)");
+    m.def("radius", &radius_npu, py::arg("x"), py::arg("y"),
+          py::arg("ptr_x") = py::none(), py::arg("ptr_y") = py::none(),
+          py::arg("r"), py::arg("max_num_neighbors"),
+          py::arg("num_workers"), py::arg("ignore_same_index") = false,
+          py::arg("stream_handle") = 0,
+          "Radius neighbor search on NPU");
     m.def("graclus_cluster_npu", &graclus_cluster_npu, py::arg("rowptr"), py::arg("col"),
           py::arg("weight"), py::arg("node_perm"), py::arg("num_nodes"), py::arg("has_weight"),
           py::arg("weight_mode"), "Graclus greedy clustering core(NPU)");
