@@ -32,6 +32,7 @@ ops-gnn/
 │       ├── ind2ptr.py          # ind2ptr Python interface
 │       ├── ptr2ind.py          # ptr2ind Python interface
 │       ├── random_walk.py      # Random-walk Python interface
+│       ├── graclus_cluster.py  # Graclus clustering Python interface
 │       ├── segment_max_csr.py  # Python interface declaration
 │       └── typing.py           # Type definitions
 ├── test/                       # Test directory
@@ -55,12 +56,20 @@ ops-gnn/
 - A torch_npu build matched to PyTorch and CANN (Gather COO was verified with PyTorch 2.7.1 / torch_npu 2.7.1.post4)
 - CANN Toolkit (AscendC compiler)
 - C++17 or later compiler
+- CANN 9.1.0 or later + HDK (driver/firmware) 25.7.rc1 or later
+- Supported platform: Ascend 950PR; other platforms are not supported yet
 
 ### CANN Environment Setup
 
 ```bash
-export CANN_SETENV=/path/to/cann/bin/setenv.bash
-source "$CANN_SETENV"
+# Activate CANN environment
+source /usr/local/Ascend/ascend-toolkit/set_env.sh
+```
+
+If CANN is installed in a custom path, run:
+
+```bash
+source ${install_path}/ascend-toolkit/set_env.sh
 ```
 
 ## Installation
@@ -68,10 +77,6 @@ source "$CANN_SETENV"
 ### Method 1: Install via pip
 
 ```bash
-# Activate CANN environment
-export CANN_SETENV=/path/to/cann/bin/setenv.bash
-source "$CANN_SETENV"
-
 # Install in development mode
 python3 -m pip install --no-build-isolation --no-deps -e .
 ```
@@ -104,6 +109,10 @@ cmake --build .
 # Install test dependencies
 pip install pytest pytest-cov
 
+# Quick start: run a single or a few test groups first
+pytest test/test_import.py -v            # Import tests
+pytest test/test_example.py -v           # A single NPU operator test (add_sample)
+
 # Run all tests
 pytest test/ -v
 ```
@@ -133,6 +142,11 @@ src = torch.tensor([[1, 2], [3, 4], [5, 6], [7, 8]], dtype=torch.float32, device
 indptr = torch.tensor([0, 2, 4], dtype=torch.int32, device='npu')
 result = ops_gnn.segment_max_csr(src, indptr)
 print(result)  # output: tensor([[3, 4], [7, 8]], device='npu:0')
+
+# torch_sparse compatibility: row indices <-> CSR rowptr
+row = torch.tensor([2, 2, 4, 5, 5, 6], dtype=torch.long, device='npu')
+rowptr = ops_gnn.ind2ptr(row, 8)          # replaces torch.ops.torch_sparse.ind2ptr(row, 8)
+row2 = ops_gnn.ptr2ind(rowptr, 6)         # replaces torch.ops.torch_sparse.ptr2ind(rowptr, 6)
 
 # COO row expansion; index must be sorted int64
 src = torch.arange(20, dtype=torch.float32, device='npu').reshape(5, 4)

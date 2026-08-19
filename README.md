@@ -56,12 +56,20 @@ ops-gnn/
 - 与 PyTorch、CANN 匹配的 torch_npu（Gather COO 实测为 PyTorch 2.7.1 / torch_npu 2.7.1.post4）
 - CANN Toolkit (AscendC 编译器)
 - C++17 或更高版本编译器
+- CANN 9.1.0 及以上 + HDK（驱动/固件）25.7.rc1 及以上
+- 支持平台：Ascend 950PR；暂不支持其他平台
 
 ### CANN 环境配置
 
 ```bash
-export CANN_SETENV=/path/to/cann/bin/setenv.bash
-source "$CANN_SETENV"
+# 激活 CANN 环境
+source /usr/local/Ascend/ascend-toolkit/set_env.sh
+```
+
+如果 CANN 安装在自定义路径，请执行：
+
+```bash
+source ${install_path}/ascend-toolkit/set_env.sh
 ```
 
 ## 安装方法
@@ -69,10 +77,6 @@ source "$CANN_SETENV"
 ### 方法1：使用pip直接安装
 
 ```bash
-# 激活 CANN 环境
-export CANN_SETENV=/path/to/cann/bin/setenv.bash
-source "$CANN_SETENV"
-
 # 安装开发模式
 python3 -m pip install --no-build-isolation --no-deps -e .
 ```
@@ -104,6 +108,10 @@ cmake --build .
 ```bash
 # 安装测试依赖
 pip install pytest pytest-cov
+
+# 快速开始：先跑单个/少量组别用例
+pytest test/test_import.py -v            # 导入用例
+pytest test/test_example.py -v           # 单个 NPU 算子用例（add_sample）
 
 # 运行所有测试
 pytest test/ -v
