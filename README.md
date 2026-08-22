@@ -33,6 +33,7 @@ ops-gnn/
 │       ├── ptr2ind.py          # ptr2ind Python 接口
 │       ├── random_walk.py      # 随机游走 Python 接口
 │       ├── graclus_cluster.py  # Graclus 聚类 Python 接口
+│       ├── scatter.py          # torch_scatter 兼容 Scatter 系列接口
 │       ├── segment_max_csr.py  # Python接口声明
 │       └── typing.py           # 类型定义
 ├── test/                       # 测试目录
@@ -159,6 +160,12 @@ src = torch.tensor([[1, 2], [3, 4]], dtype=torch.float16, device='npu')
 indptr = torch.tensor([0, 2, 5], dtype=torch.int64, device='npu')
 result = ops_gnn.gather_csr(src, indptr)
 print(result.shape)  # torch.Size([5, 2])
+
+# torch_scatter 兼容的 Scatter 归约
+src = torch.randn(10, 6, 64, dtype=torch.float32, device='npu')
+index = torch.randint(0, 4, (10,), dtype=torch.long, device='npu')
+result = ops_gnn.scatter(src, index, dim=0, dim_size=4, reduce='sum')
+print(result.shape)  # torch.Size([4, 6, 64])
 ```
 
 ## 算子列表
@@ -174,6 +181,9 @@ print(result.shape)  # torch.Size([5, 2])
 | `graclus_cluster` | 图贪心聚类 | NPU / CPU float64 回退 |
 | `ind2ptr` | 有序行索引转 CSR 行指针（对齐 torch_sparse） | NPU |
 | `ptr2ind` | CSR 行指针转行索引（对齐 torch_sparse） | NPU |
+| `scatter` / `scatter_*` | 与 torch_scatter 对齐的索引分组归约 | NPU / CPU float64、int64 回退 |
+
+Scatter 的完整接口、dtype 分级和使用示例见 [API 文档](docs/zh/api_reference.md#210-scatter--scatter-系列归约)。
 
 ## 开发指南
 

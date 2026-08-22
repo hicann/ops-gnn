@@ -22,6 +22,16 @@ from .gather_coo import gather_coo
 from .ind2ptr import ind2ptr
 from .ptr2ind import ptr2ind
 from .random_walk import random_walk
+from .scatter import (
+    native_available,
+    scatter,
+    scatter_add,
+    scatter_max,
+    scatter_mean,
+    scatter_min,
+    scatter_mul,
+    scatter_sum,
+)
 from .segment_max_csr import segment_max_csr
 from .radius import radius, radius_graph
 from .typing import Tensor, OptTensor
@@ -34,6 +44,14 @@ __all__ = [
     'graclus_cluster',
     'gather_coo',
     'random_walk',
+    'scatter',
+    'scatter_sum',
+    'scatter_add',
+    'scatter_mul',
+    'scatter_mean',
+    'scatter_min',
+    'scatter_max',
+    'native_available',
     'segment_max_csr',
     'ind2ptr',
     'ptr2ind',

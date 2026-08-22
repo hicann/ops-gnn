@@ -19,6 +19,7 @@
 #include "host/graclus_cluster/graclus_cluster.h"
 #include "sparse/ind2ptr/op_host/ind2ptr.h"
 #include "sparse/ptr2ind/op_host/ptr2ind.h"
+#include "host/scatter/scatter.h"
 
 namespace py = pybind11;
 
@@ -60,4 +61,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
         py::arg("index"),
         py::arg("out") = py::none(),
         "Gather rows using a COO index on the current NPU stream");
+    m.def("scatter_forward", &scatter_forward, py::arg("src"), py::arg("index"),
+          py::arg("dim"), py::arg("out"), py::arg("reduce"), py::arg("has_out"),
+          py::arg("hot_target") = -1, "torch_scatter-compatible forward reduction(NPU)");
 }

@@ -33,6 +33,7 @@ ops-gnn/
 │       ├── ptr2ind.py          # ptr2ind Python interface
 │       ├── random_walk.py      # Random-walk Python interface
 │       ├── graclus_cluster.py  # Graclus clustering Python interface
+│       ├── scatter.py          # torch_scatter-compatible Scatter APIs
 │       ├── segment_max_csr.py  # Python interface declaration
 │       └── typing.py           # Type definitions
 ├── test/                       # Test directory
@@ -159,6 +160,12 @@ src = torch.tensor([[1, 2], [3, 4]], dtype=torch.float16, device='npu')
 indptr = torch.tensor([0, 2, 5], dtype=torch.int64, device='npu')
 result = ops_gnn.gather_csr(src, indptr)
 print(result.shape)  # torch.Size([5, 2])
+
+# torch_scatter-compatible indexed reduction
+src = torch.randn(10, 6, 64, dtype=torch.float32, device='npu')
+index = torch.randint(0, 4, (10,), dtype=torch.long, device='npu')
+result = ops_gnn.scatter(src, index, dim=0, dim_size=4, reduce='sum')
+print(result.shape)  # torch.Size([4, 6, 64])
 ```
 
 ## Operator List
@@ -174,6 +181,9 @@ print(result.shape)  # torch.Size([5, 2])
 | `graclus_cluster` | Greedy graph clustering | NPU / CPU fallback for float64 |
 | `ind2ptr` | Sorted row indices to CSR row pointer (torch_sparse-aligned) | NPU |
 | `ptr2ind` | CSR row pointer to row indices (torch_sparse-aligned) | NPU |
+| `scatter` / `scatter_*` | torch_scatter-compatible indexed reductions | NPU / CPU fallback for float64 and int64 |
+
+See the [API reference](docs/en/api_reference.md#210-scatter--scatter-reductions) for the complete Scatter API, dtype tiers, and examples.
 
 ## Development Guide
 

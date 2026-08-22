@@ -1,0 +1,7 @@
+*.cpp text eol=lf
+*.h text eol=lf
+*.inc text eol=lf
+*.py text eol=lf
+*.md text eol=lf
+CMakeLists.txt text eol=lf
+MANIFEST.in text eol=lf

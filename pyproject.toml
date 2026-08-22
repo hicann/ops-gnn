@@ -38,5 +38,10 @@ test = [
     "pytest-cov",
 ]
 
+[tool.pytest.ini_options]
+filterwarnings = [
+    'ignore:`torch\.jit\.script_method` is deprecated\..*:DeprecationWarning',
+]
+
 [tool.cibuildwheel]
 test-command = "python -c \"import ops_gnn; print(ops_gnn.greet('World'))\""

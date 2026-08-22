@@ -662,6 +662,63 @@ python test/gather_csr/benchmark_gather_csr.py --warmup 20 --iterations 101
 
 ---
 
+### 2.10 scatter — Scatter 系列归约
+
+`scatter` 系列接口与 `torch_scatter` 2.1.2 的前向语义保持一致：
+
+```python
+ops_gnn.scatter(src, index, dim=-1, out=None, dim_size=None, reduce="sum")
+ops_gnn.scatter_sum(src, index, dim=-1, out=None, dim_size=None)
+ops_gnn.scatter_add(src, index, dim=-1, out=None, dim_size=None)
+ops_gnn.scatter_mul(src, index, dim=-1, out=None, dim_size=None)
+ops_gnn.scatter_mean(src, index, dim=-1, out=None, dim_size=None)
+ops_gnn.scatter_min(src, index, dim=-1, out=None, dim_size=None)
+ops_gnn.scatter_max(src, index, dim=-1, out=None, dim_size=None)
+```
+
+`scatter_min` 和 `scatter_max` 返回 `(out, arg_out)`，其他接口返回
+`out`；`scatter_add` 与 `scatter_sum` 使用相同的归约语义。
+
+#### 参数
+
+- `src`：输入 Tensor，支持 1 至 8 维。
+- `index`：INT64 Tensor，可按 `torch_scatter` 规则广播到 `src`。
+- `dim`：归约维度，支持负维度，默认为 `-1`。
+- `out`：可选输出 Tensor；传入时在原对象上更新并保持对象身份。
+- `dim_size`：可选输出归约维长度；省略时由 `index` 最大值推导。
+- `reduce`：`sum`、`add`、`mul`、`mean`、`min` 或 `max`。
+
+#### 数据类型与执行路径
+
+| 级别 | `src/out` 数据类型 | 执行路径 | 支持的归约 |
+|---|---|---|---|
+| L1 | float16、bfloat16、float32、int8、int16、int32、uint8 | Ascend C NPU Kernel | 全部六种 |
+| L2 | float64、int64 | 同步 CPU 回退并复制回原设备 | 全部六种 |
+
+整数 `mean` 使用 floor 除法。`min/max` 出现相同最值时由后写入者胜出；
+未写入位置的值为零，`arg_out` 为 `src.size(dim)`。接口支持显式
+`dim_size`、空 Tensor、非连续 Tensor、无序或重复索引以及高冲突索引。
+本接口仅提供前向计算。
+
+#### 示例
+
+```python
+import os
+import torch
+import ops_gnn
+
+torch.npu.set_device(int(os.environ.get("NPU_DEVICE_ID", 0)))
+src = torch.tensor([1.0, 2.0, 3.0, 4.0], device="npu")
+index = torch.tensor([0, 1, 0, 1], dtype=torch.long, device="npu")
+
+out = ops_gnn.scatter_sum(src, index)
+# tensor([4., 6.], device='npu:0')
+
+values, arg = ops_gnn.scatter_max(src, index)
+# values: tensor([3., 4.], device='npu:0')
+# arg:    tensor([2, 3], device='npu:0')
+```
+
 ## 三、测试指南
 
 ### 3.1 运行测试

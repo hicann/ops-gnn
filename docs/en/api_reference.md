@@ -694,6 +694,65 @@ python test/gather_csr/benchmark_gather_csr.py --warmup 20 --iterations 101
 
 ---
 
+### 2.10 scatter — Scatter Reductions
+
+The Scatter family follows the forward semantics of `torch_scatter` 2.1.2:
+
+```python
+ops_gnn.scatter(src, index, dim=-1, out=None, dim_size=None, reduce="sum")
+ops_gnn.scatter_sum(src, index, dim=-1, out=None, dim_size=None)
+ops_gnn.scatter_add(src, index, dim=-1, out=None, dim_size=None)
+ops_gnn.scatter_mul(src, index, dim=-1, out=None, dim_size=None)
+ops_gnn.scatter_mean(src, index, dim=-1, out=None, dim_size=None)
+ops_gnn.scatter_min(src, index, dim=-1, out=None, dim_size=None)
+ops_gnn.scatter_max(src, index, dim=-1, out=None, dim_size=None)
+```
+
+`scatter_min` and `scatter_max` return `(out, arg_out)`; the other functions
+return `out`. `scatter_add` and `scatter_sum` have identical reduction
+semantics.
+
+#### Arguments
+
+- `src`: input Tensor with rank 1 through 8.
+- `index`: INT64 Tensor broadcastable to `src` under `torch_scatter` rules.
+- `dim`: reduction dimension; negative dimensions are supported. Default: `-1`.
+- `out`: optional output Tensor, updated in place while preserving identity.
+- `dim_size`: optional output size on `dim`; inferred from `index` when omitted.
+- `reduce`: `sum`, `add`, `mul`, `mean`, `min`, or `max`.
+
+#### Dtypes and execution paths
+
+| Level | `src/out` dtype | Execution path | Reductions |
+|---|---|---|---|
+| L1 | float16, bfloat16, float32, int8, int16, int32, uint8 | Ascend C NPU kernel | all six |
+| L2 | float64, int64 | synchronous CPU fallback copied back to the original device | all six |
+
+Integer `mean` uses floor division. For equal extrema, `min/max` selects the
+later writer. Unwritten output positions contain zero and their `arg_out`
+value is `src.size(dim)`. The APIs support explicit `dim_size`, empty and
+non-contiguous Tensors, unordered or duplicate indices, and high-contention
+indices. Only forward computation is provided.
+
+#### Example
+
+```python
+import os
+import torch
+import ops_gnn
+
+torch.npu.set_device(int(os.environ.get("NPU_DEVICE_ID", 0)))
+src = torch.tensor([1.0, 2.0, 3.0, 4.0], device="npu")
+index = torch.tensor([0, 1, 0, 1], dtype=torch.long, device="npu")
+
+out = ops_gnn.scatter_sum(src, index)
+# tensor([4., 6.], device='npu:0')
+
+values, arg = ops_gnn.scatter_max(src, index)
+# values: tensor([3., 4.], device='npu:0')
+# arg:    tensor([2, 3], device='npu:0')
+```
+
 ## 3. Testing Guide
 
 ### 3.1 Running Tests
