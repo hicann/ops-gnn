@@ -153,8 +153,13 @@ def _index_minmax(index: torch.Tensor) -> Tuple[int, int]:
         ):
             return cached[2], cached[3]
 
-    minimum = int(index.min().item())
-    maximum = int(index.max().item())
+    bounds_index = index
+    if index.device.type == "npu" and index.numel() >= 65536:
+        # Large int64 reductions may time out in the Ascend ConcatD path.
+        # Bounds are checked once and cached, so perform this validation on CPU.
+        bounds_index = index.cpu()
+    minimum = int(bounds_index.min().item())
+    maximum = int(bounds_index.max().item())
     if cacheable:
         # A bounded cache removes repeated .item() synchronization from warmup
         # and timed calls.  Tensor in-place updates increment _version, so a

@@ -174,7 +174,7 @@ def prepare_csr(
     return rowptr, col_work
 
 
-def _is_neighbor(
+def is_neighbor(
     rowptr: Tensor, col: Tensor, node: int, target: int, neighbors_sorted: bool
 ) -> bool:
     begin = int(rowptr[node])
@@ -264,7 +264,7 @@ def _compute_thresholds(p: float, q: float) -> WalkThresholds:
 def _accept_candidate(context: WalkContext, candidate: int, previous: int, draw: int) -> bool:
     if candidate == previous:
         return draw < context.thresholds.returning
-    if _is_neighbor(context.rowptr, context.col, candidate, previous, context.neighbors_sorted):
+    if is_neighbor(context.rowptr, context.col, candidate, previous, context.neighbors_sorted):
         return draw < context.thresholds.neighboring
     return draw < context.thresholds.distant
 

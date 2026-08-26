@@ -9,7 +9,9 @@
 from itertools import product
 import math
 import os
+from pathlib import Path
 import random
+import runpy
 
 import pytest
 import torch
@@ -20,6 +22,10 @@ except ImportError:
     torch_npu = None
 
 from ops_gnn import gather_csr
+
+_GOLDEN = runpy.run_path(Path(__file__).with_name("golden.py"))
+gather_csr_cpu = _GOLDEN["gather_csr_cpu"]
+gather_csr_coo_cpu = _GOLDEN["gather_csr_coo_cpu"]
 
 
 DTYPES = [
@@ -61,69 +67,15 @@ OFFICIAL_CASES = [
 
 
 def _require_npu():
-    if torch_npu is None or not torch.npu.is_available():
+    if torch_npu is None:
         pytest.skip("requires an available Ascend NPU")
     torch.npu.set_device(int(os.environ.get("NPU_DEVICE_ID", 0)))
-
-
-def _golden(src, indptr):
-    dim = indptr.dim() - 1
-    if src.numel() == 0:
-        shape = list(src.shape)
-        shape[dim] = 0
-        return torch.zeros(shape, dtype=src.dtype)
-
-    ptr_shape = list(indptr.shape)
-    for axis in range(dim):
-        ptr_shape[axis] = src.size(axis)
-    ptr = indptr.expand(ptr_shape).contiguous()
-    output_rows = int(ptr.flatten()[-1])
-    shape = list(src.shape)
-    shape[dim] = output_rows
-    out = torch.zeros(shape, dtype=src.dtype)
-
-    batch_count = 1
-    for size in src.shape[:dim]:
-        batch_count *= size
-    segment_count = src.size(dim)
-    feature_count = 1
-    for size in src.shape[dim + 1:]:
-        feature_count *= size
-    src_view = src.contiguous().view(batch_count, segment_count, feature_count)
-    ptr_view = ptr.view(batch_count, segment_count + 1)
-    out_view = out.view(batch_count, output_rows, feature_count)
-    for batch in range(batch_count):
-        for segment in range(segment_count):
-            start = int(ptr_view[batch, segment])
-            end = int(ptr_view[batch, segment + 1])
-            out_view[batch, start:end] = src_view[batch, segment]
-    return out
+    if not torch.npu.is_available():
+        pytest.skip("requires an available Ascend NPU")
 
 
 def _to_npu(value, dtype):
     return torch.tensor(value, dtype=dtype, device="npu")
-
-
-def _coo_equivalent_golden(src, indptr):
-    dim = indptr.dim() - 1
-    ptr_shape = list(indptr.shape)
-    for axis in range(dim):
-        ptr_shape[axis] = src.size(axis)
-    ptr = indptr.expand(ptr_shape).contiguous()
-    output_rows = int(ptr.flatten()[-1])
-    batch_count = math.prod(src.shape[:dim])
-    segment_count = src.size(dim)
-    feature_count = math.prod(src.shape[dim + 1:])
-    src_view = src.contiguous().view(batch_count, segment_count, feature_count)
-    ptr_view = ptr.view(batch_count, segment_count + 1)
-    rows = []
-    for batch in range(batch_count):
-        lengths = ptr_view[batch, 1:] - ptr_view[batch, :-1]
-        coo = torch.arange(segment_count).repeat_interleave(lengths)
-        rows.append(src_view[batch].index_select(0, coo))
-    shape = list(src.shape)
-    shape[dim] = output_rows
-    return torch.stack(rows).view(shape)
 
 
 @pytest.mark.parametrize("case,dtype", list(product(OFFICIAL_CASES, DTYPES)))
@@ -145,7 +97,7 @@ def test_official_csr_coo_equivalent_indices(case):
     src_data, indptr_data, _ = case
     src = torch.tensor(src_data, dtype=torch.float32)
     indptr = torch.tensor(indptr_data, dtype=torch.int64)
-    coo_expected = _coo_equivalent_golden(src, indptr)
+    coo_expected = gather_csr_coo_cpu(src, indptr)
     actual = gather_csr(src.to("npu"), indptr.to("npu"))
     assert torch.equal(actual.cpu(), coo_expected)
 
@@ -158,7 +110,7 @@ def test_out_is_updated_and_returned(dtype):
     out = torch.full((6, 2), -1, dtype=dtype, device="npu")
     result = gather_csr(src, indptr, out)
     assert result.data_ptr() == out.data_ptr()
-    assert torch.equal(out.cpu(), _golden(src.cpu(), indptr.cpu()))
+    assert torch.equal(out.cpu(), gather_csr_cpu(src.cpu(), indptr.cpu()))
 
 
 def test_float64_l2_preserves_raw_bits_and_nan_payload():
@@ -204,7 +156,7 @@ def test_non_contiguous_src_indptr_and_out(dtype):
     assert not out.is_contiguous()
     result = gather_csr(src, ptr, out)
     assert result.data_ptr() == out.data_ptr()
-    assert torch.equal(out.cpu(), _golden(src.cpu(), ptr.cpu()))
+    assert torch.equal(out.cpu(), gather_csr_cpu(src.cpu(), ptr.cpu()))
 
 
 @pytest.mark.parametrize("dtype", DTYPES)
@@ -213,7 +165,7 @@ def test_broadcast_indptr(dtype):
     src = torch.arange(2 * 3 * 4, dtype=torch.int32).reshape(2, 3, 4).to(dtype=dtype, device="npu")
     indptr = _to_npu([[0, 2, 2, 5]], torch.int64)
     actual = gather_csr(src, indptr)
-    assert torch.equal(actual.cpu(), _golden(src.cpu(), indptr.cpu()))
+    assert torch.equal(actual.cpu(), gather_csr_cpu(src.cpu(), indptr.cpu()))
 
 
 @pytest.mark.parametrize("rank", range(1, 9))
@@ -228,7 +180,7 @@ def test_rank_1_to_8(rank):
     ptr = torch.tensor([0, 2, 2, 5, 7], dtype=torch.int64)
     indptr = ptr.view([1] * dim + [5]).expand(ptr_shape).clone().to("npu")
     actual = gather_csr(src, indptr)
-    assert torch.equal(actual.cpu(), _golden(src.cpu(), indptr.cpu()))
+    assert torch.equal(actual.cpu(), gather_csr_cpu(src.cpu(), indptr.cpu()))
 
 
 @pytest.mark.parametrize("feature_count", [1, 3, 7, 31, 33, 127, 129, 4097])
@@ -237,7 +189,7 @@ def test_feature_tail_and_multiple_tiles(feature_count):
     src = torch.arange(4 * feature_count, dtype=torch.float32).reshape(4, feature_count).to("npu")
     indptr = _to_npu([0, 1, 4, 4, 7], torch.int64)
     actual = gather_csr(src, indptr)
-    assert torch.equal(actual.cpu(), _golden(src.cpu(), indptr.cpu()))
+    assert torch.equal(actual.cpu(), gather_csr_cpu(src.cpu(), indptr.cpu()))
 
 
 def test_zero_tensor_and_empty_indptr():
@@ -304,7 +256,7 @@ def test_empty_segments(indptr):
     src = torch.arange(12, dtype=torch.float32).reshape(4, 3).to("npu")
     ptr = _to_npu(indptr, torch.int64)
     actual = gather_csr(src, ptr)
-    assert torch.equal(actual.cpu(), _golden(src.cpu(), ptr.cpu()))
+    assert torch.equal(actual.cpu(), gather_csr_cpu(src.cpu(), ptr.cpu()))
 
 
 def test_uncovered_prefix_is_deterministically_zeroed():
@@ -367,7 +319,7 @@ def test_current_stream_ordering():
         src = src * 3
         indptr = _to_npu([0, 2, 3, 3, 6], torch.int64)
         actual = gather_csr(src, indptr)
-        expected = _golden((torch.arange(16).reshape(4, 4) * 3).float(), indptr.cpu())
+        expected = gather_csr_cpu((torch.arange(16).reshape(4, 4) * 3).float(), indptr.cpu())
     stream.synchronize()
     assert torch.equal(actual.cpu(), expected)
 
@@ -388,7 +340,7 @@ def test_output_major_long_segment_and_skew(dtype):
     src = torch.arange(4 * 128, dtype=torch.int64).to(dtype).reshape(4, 128)
     indptr = torch.tensor([2, 4098, 4098, 4099, 8195], dtype=torch.int64)
     actual = gather_csr(src.to("npu"), indptr.to("npu"))
-    assert torch.equal(actual.cpu(), _golden(src, indptr))
+    assert torch.equal(actual.cpu(), gather_csr_cpu(src, indptr))
 
 
 @pytest.mark.parametrize("seed", range(100))
@@ -411,7 +363,7 @@ def test_randomized_generalization(seed):
 
     dtype = DTYPES[seed % len(DTYPES)]
     src_cpu = (torch.arange(math.prod(shape), dtype=torch.int64) - 17).to(dtype).reshape(shape)
-    expected = _golden(src_cpu, ptr_cpu)
+    expected = gather_csr_cpu(src_cpu, ptr_cpu)
     src = src_cpu.to("npu")
     ptr = ptr_cpu.to("npu")
     if seed % 3 == 0:

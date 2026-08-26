@@ -9,46 +9,15 @@ See LICENSE in the root of the software repository for the full text of the Lice
 """
 
 import os
+from pathlib import Path
+import runpy
 import pytest
 import torch
 import ops_gnn
 
 
-def segment_max_csr_cpu(src, indptr):
-    """CPU reference implementation of segment_max_csr (matching torch_scatter semantics)"""
-    indptr_dim = indptr.dim()
-    n_segments = indptr.shape[-1] - 1
-    
-    result_shape = list(src.shape)
-    result_shape[indptr_dim - 1] = n_segments
-    result = torch.empty(result_shape, dtype=src.dtype)
-    
-    src_cpu = src.cpu()
-    indptr_cpu = indptr.cpu()
-    src_shape = src.shape
-    fill_values = {
-        torch.float32: float('-inf'),
-        torch.float16: -65504,
-        torch.int32: -2147483648,
-        torch.int16: -32768,
-    }
-    fill_value = fill_values.get(src.dtype, -32768)
-    
-    for batch_idx in range(src_shape[0]):
-        for seg in range(n_segments):
-            start = int(indptr_cpu[0, seg]) if indptr_dim > 1 else int(indptr_cpu[seg])
-            end = int(indptr_cpu[0, seg + 1]) if indptr_dim > 1 else int(indptr_cpu[seg + 1])
-            
-            if start >= end:
-                result[batch_idx, seg] = fill_value
-                continue
-
-            if indptr_dim == 1:
-                result[seg] = src_cpu[start:end].max(dim=0).values
-            else:
-                result[batch_idx, seg] = src_cpu[batch_idx, start:end].max(dim=0).values
-    
-    return result
+_GOLDEN = runpy.run_path(Path(__file__).with_name("golden.py"))
+segment_max_csr_cpu = _GOLDEN["segment_max_csr_cpu"]
 
 
 def test_segment_max_csr_basic():

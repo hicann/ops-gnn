@@ -11,6 +11,7 @@ import csv
 import json
 import logging
 import math
+import os
 import statistics
 import time
 from dataclasses import dataclass
@@ -131,6 +132,9 @@ def parse_args():
 
 
 def validate_args(args):
+    device_id = int(os.environ.get("NPU_DEVICE_ID", "0"))
+    if torch_npu is not None and hasattr(torch, "npu"):
+        torch.npu.set_device(device_id)
     if (
         torch_npu is None
         or not hasattr(torch, "npu")

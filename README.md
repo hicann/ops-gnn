@@ -1,6 +1,6 @@
 # ops-gnn
 
-[English](README_EN.md) | 简体中文
+[English](README_en.md) | 简体中文
 
 ops-gnn 是昇腾生态下针对图神经网络（GNN）推出的一款算子库，支持基于NPU对图神经网络进行加速。
 
@@ -10,32 +10,10 @@ ops-gnn 是昇腾生态下针对图神经网络（GNN）推出的一款算子库
 ops-gnn/
 ├── csrc/                       # C++/AscendC源码目录
 │   ├── pybind.cpp              # PyTorch绑定代码
-│   └── npu/                    # NPU相关代码
-│       ├── host/               # Host端代码（按算子分类）
-│       ├── kernel/             # AscendC内核实现（按算子分类）
-│       └── sparse/             # sparse 算子（按算子分子目录）
-│           ├── ind2ptr/
-│           │   ├── op_host/   # Host 调度
-│           │   └── op_kernel/
-│           │       └── arch35/  # Ascend950 Kernel
-│           └── ptr2ind/
-│               ├── op_host/
-│               └── op_kernel/
-│                   └── arch35/
+│   └── npu/                    # NPU相关代码（按算子分类）
 ├── docs/                       # 文档目录（API 说明见 docs/*/api_reference.md）
 ├── python/                     # Python源码目录
 │   └── ops_gnn/                # Python包目录
-│       ├── __init__.py         # 包初始化文件
-│       ├── add_sample.py       # Python接口声明
-│       ├── gather_coo.py       # Python接口声明
-│       ├── gather_csr.py       # Gather CSR Python接口
-│       ├── ind2ptr.py          # ind2ptr Python 接口
-│       ├── ptr2ind.py          # ptr2ind Python 接口
-│       ├── random_walk.py      # 随机游走 Python 接口
-│       ├── graclus_cluster.py  # Graclus 聚类 Python 接口
-│       ├── scatter.py          # torch_scatter 兼容 Scatter 系列接口
-│       ├── segment_max_csr.py  # Python接口声明
-│       └── typing.py           # 类型定义
 ├── test/                       # 测试目录
 ├── scripts/                    # 构建脚本目录
 │   └── build.sh                # 统一构建脚本
@@ -49,6 +27,8 @@ ops-gnn/
 └── LICENSE                     # CANN 许可证
 ```
 
+`csrc/npu` 下各算子目录包含 `op_host` 和 `op_kernel/<arch>`；`test` 下各算子目录包含 `golden.py`、功能测试文件和性能测试文件。其中，`<arch>` 表示目标架构对应的目录名。
+
 ## 环境要求
 
 - Python 3.9+
@@ -58,7 +38,7 @@ ops-gnn/
 - CANN Toolkit (AscendC 编译器)
 - C++17 或更高版本编译器
 - CANN 9.1.0 及以上 + HDK（驱动/固件）25.7.rc1 及以上
-- 支持平台：Ascend 950PR；暂不支持其他平台
+- 支持平台：Ascend 950系列；暂不支持其他平台
 
 ### CANN 环境配置
 
@@ -104,7 +84,7 @@ cmake ..
 cmake --build .
 ```
 
-## 运行测试
+## 功能测试
 
 ```bash
 # 安装测试依赖
@@ -114,17 +94,27 @@ pip install pytest pytest-cov
 pytest test/test_import.py -v            # 导入用例
 pytest test/test_example.py -v           # 单个 NPU 算子用例（add_sample）
 
-# 运行所有测试
+# 运行所有功能测试
 pytest test/ -v
 ```
 
-Gather COO 测试位于 `test/gather_coo/`：
+运行单个算子的功能测试：
 
 ```bash
-OPSGNN_REQUIRE_TORCH_SCATTER=1 \
-python3 -m pytest test/gather_coo/test_gather_coo_functional.py -v
-python3 test/gather_coo/test_gather_coo_performance.py --warmup 20 --repeats 100
+NPU_DEVICE_ID=<device_id> python3 -m pytest test/<op>/test_<op>.py -v
 ```
+
+其中，`<op>` 表示算子名，`<device_id>` 表示设备 ID。
+
+## 性能测试
+
+运行单个算子的性能测试：
+
+```bash
+NPU_DEVICE_ID=<device_id> python3 test/<op>/benchmark_<op>.py
+```
+
+其中，`<op>` 表示算子名，`<device_id>` 表示设备 ID。
 
 ## 使用示例
 
@@ -189,12 +179,14 @@ Scatter 的完整接口、dtype 分级和使用示例见 [API 文档](docs/zh/ap
 
 ### 添加新的 NPU 算子
 
-1. 在 `csrc/npu/kernel/<算子名>/` 中创建 AscendC 内核文件（`.cpp`）和头文件（`.h`）
-2. 在 `csrc/npu/host/<算子名>/` 中创建算子接口实现（`.cpp`）和头文件（`.h`）
+1. 在 `csrc/npu/<op>/op_kernel/<arch>/` 中创建 AscendC 内核文件（`.cpp`）和头文件（`.h`）
+2. 在 `csrc/npu/<op>/op_host/` 中创建算子接口实现（`.cpp`）和头文件（`.h`）
 3. 在 `csrc/pybind.cpp` 中添加 PyTorch 绑定
 4. 在 `python/ops_gnn/` 中创建 Python 接口声明文件
 5. 更新 `python/ops_gnn/__init__.py` 导出新函数
-6. 在 `test/` 中添加测试文件
+6. 在 `test/<op>/` 中添加 `golden.py`、`test_<op>.py` 和 `benchmark_<op>.py`
+
+其中，`<op>` 表示算子名。
 
 ## 许可证
 

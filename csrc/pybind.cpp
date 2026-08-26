@@ -10,16 +10,16 @@
 
 #include <torch/extension.h>
 #include <pybind11/pybind11.h>
-#include "host/add_sample/add_sample.h"
-#include "host/gather_coo/gather_coo.h"
-#include "host/gather_csr/gather_csr.h"
-#include "host/random_walk/random_walk.h"
-#include "host/segment_max_csr/segment_max_csr.h"
-#include "host/radius/radius.h"
-#include "host/graclus_cluster/graclus_cluster.h"
-#include "sparse/ind2ptr/op_host/ind2ptr.h"
-#include "sparse/ptr2ind/op_host/ptr2ind.h"
-#include "host/scatter/scatter.h"
+#include "add_sample/op_host/add_sample.h"
+#include "gather_coo/op_host/gather_coo.h"
+#include "gather_csr/op_host/gather_csr.h"
+#include "random_walk/op_host/random_walk.h"
+#include "segment_max_csr/op_host/segment_max_csr.h"
+#include "radius/op_host/radius.h"
+#include "graclus_cluster/op_host/graclus_cluster.h"
+#include "ind2ptr/op_host/ind2ptr.h"
+#include "ptr2ind/op_host/ptr2ind.h"
+#include "scatter/op_host/scatter.h"
 
 namespace py = pybind11;
 

@@ -39,6 +39,9 @@ test = [
 ]
 
 [tool.pytest.ini_options]
+markers = [
+    "npu: requires an Ascend NPU and the compiled ops_gnn extension",
+]
 filterwarnings = [
     'ignore:`torch\.jit\.script_method` is deprecated\..*:DeprecationWarning',
 ]

@@ -93,11 +93,11 @@ ops-gnn 采用 PyTorch 扩展 + AscendC 内核的分层架构：
 │   (PYBIND11_MODULE 注册、参数映射)            │
 ├─────────────────────────────────────────────┤
 │              Host 端算子层                   │
-│   csrc/npu/host/<op>/<op>.cpp/.h            │
+│   csrc/npu/<op>/op_host/<op>.cpp/.h            │
 │   (参数解析、Tiling 计算、Kernel 启动、流管理)  │
 ├─────────────────────────────────────────────┤
 │              AscendC Kernel 层              │
-│   csrc/npu/kernel/<op>/<op>_kernel.cpp/.h   │
+│   csrc/npu/<op>/op_kernel/<arch>/<op>_kernel.cpp/.h   │
 │   (AscendC SIMT/VF 编程、向量计算、数据搬移)    │
 └─────────────────────────────────────────────┘
 ```
@@ -115,46 +115,11 @@ ops-gnn 采用 PyTorch 扩展 + AscendC 内核的分层架构：
 ops-gnn
 ├── csrc/                           # C++/AscendC 源码目录
 │   ├── pybind.cpp                  # PyTorch 绑定代码
-│   └── npu/                        # NPU 相关代码
-│       ├── host/                   # Host 端代码（按算子分类）
-│       │   ├── add_sample/
-│       │   │   ├── add_sample.h    # Host 接口声明
-│       │   │   └── add_sample.cpp  # Host 实现（Tiling + Launch）
-│       │   └── segment_max_csr/
-│       │       ├── segment_max_csr.h
-│       │       └── segment_max_csr.cpp
-│       ├── kernel/                 # AscendC 内核实现（按算子分类）
-│       │   ├── add_sample/
-│       │   │   ├── add_sample_kernel.h   # Kernel Launch 接口
-│       │   │   └── add_sample_kernel.cpp # Kernel 实现（AscendC SIMT）
-│       │   └── segment_max_csr/
-│       │       ├── segment_max_csr_kernel.h       # Kernel Launch 接口
-│       │       ├── segment_max_csr_kernel.cpp     # Kernel 入口 + 模板实例化
-│       │       ├── segment_max_csr_kernel_impl.h  # Kernel 核心实现类
-│       │       └── segment_max_csr_tiling.h       # Tiling 数据结构
-│       └── sparse/                 # sparse 算子（按算子分子目录）
-│           ├── ind2ptr/
-│           │   ├── op_host/       # Host 调度
-│           │   └── op_kernel/
-│           │       └── arch35/    # Ascend950 Kernel
-│           └── ptr2ind/
-│               ├── op_host/
-│               └── op_kernel/
-│                   └── arch35/
+│   └── npu/                        # NPU 相关代码（按算子分类）
 ├── docs/                           # 文档目录（API 说明见 docs/*/api_reference.md）
 ├── python/                         # Python 源码目录
 │   └── ops_gnn/                    # Python 包目录
-│       ├── __init__.py             # 包初始化、导出列表
-│       ├── add_sample.py           # add_sample Python 接口
-│       ├── ind2ptr.py              # ind2ptr Python 接口
-│       ├── ptr2ind.py              # ptr2ind Python 接口
-│       ├── segment_max_csr.py      # segment_max_csr Python 接口
-│       └── typing.py               # 类型别名定义
-├── test/                           # 测试目录（./scripts/build.sh test 统一触发）
-│   ├── test_import.py              # 导入验证测试
-│   ├── test_example.py             # add_sample 算子测试
-│   ├── test_segment_max_csr.py     # segment_max_csr 算子测试
-│   └── sparse/                     # sparse 算子用例（ind2ptr/ptr2ind）
+├── test/                           # 测试目录
 ├── scripts/                        # 构建脚本目录
 │   └── build.sh                    # 统一构建/测试脚本（python/cpp/all/test）
 ├── cmake/                          # CMake 配置
@@ -167,17 +132,19 @@ ops-gnn
 └── LICENSE                         # CANN 许可证
 ```
 
+`csrc/npu` 下各算子目录包含 `op_host` 和 `op_kernel/<arch>`；`test` 下各算子目录包含 `golden.py`、功能测试文件和性能测试文件。其中，`<arch>` 表示目标架构对应的目录名。
+
 ### 2.3 核心文件说明
 
 | 文件 | 功能说明 |
 |------|---------|
 | `csrc/pybind.cpp` | PyTorch 绑定入口，通过 `PYBIND11_MODULE` 注册所有 C++ 算子到 Python |
-| `csrc/npu/host/<op>/<op>.h` | Host 端算子接口声明，定义函数签名 |
-| `csrc/npu/host/<op>/<op>.cpp` | Host 端算子实现：Tensor 维度解析、Tiling 参数计算、dtype 分发、Stream 管理 |
-| `csrc/npu/kernel/<op>/<op>_kernel.h` | Kernel Launch 函数声明（Host 端调用入口） |
-| `csrc/npu/kernel/<op>/<op>_kernel.cpp` | Kernel Launch 实现 + 模板显式实例化 + `<<<>>>` 启动语法 |
-| `csrc/npu/kernel/<op>/<op>_kernel_impl.h` | AscendC Kernel 核心类实现（Init → Process → Compute 流水线） |
-| `csrc/npu/kernel/<op>/<op>_tiling.h` | Tiling 数据结构定义（传递给 Device 端的参数结构体） |
+| `csrc/npu/<op>/op_host/<op>.h` | Host 端算子接口声明，定义函数签名 |
+| `csrc/npu/<op>/op_host/<op>.cpp` | Host 端算子实现：Tensor 维度解析、Tiling 参数计算、dtype 分发、Stream 管理 |
+| `csrc/npu/<op>/op_kernel/<arch>/<op>_kernel.h` | Kernel Launch 函数声明（Host 端调用入口） |
+| `csrc/npu/<op>/op_kernel/<arch>/<op>_kernel.cpp` | Kernel Launch 实现 + 模板显式实例化 + `<<<>>>` 启动语法 |
+| `csrc/npu/<op>/op_kernel/<arch>/<op>_kernel_impl.h` | AscendC Kernel 核心类实现（Init → Process → Compute 流水线） |
+| `csrc/npu/<op>/op_kernel/<arch>/<op>_tiling.h` | Tiling 数据结构定义（传递给 Device 端的参数结构体） |
 | `python/ops_gnn/<op>.py` | Python 接口封装：类型注解、参数默认值处理、调用 `_pybind.<op>` |
 | `python/ops_gnn/__init__.py` | 包入口，从各模块导入并注册到 `__all__` |
 | `python/ops_gnn/typing.py` | 类型别名（`Tensor`, `OptTensor`） |
@@ -213,15 +180,16 @@ ops-gnn
 每个算子严格遵循以下文件拆分：
 
 ```text
-csrc/npu/
-├── host/<op>/
+csrc/npu/<op>/
+├── op_host/
 │   ├── <op>.h          # Host 接口声明
 │   └── <op>.cpp        # Host 实现
-└── kernel/<op>/
-    ├── <op>_kernel.h        # Kernel Launch 声明
-    ├── <op>_kernel.cpp      # Kernel Launch 实现 + 模板实例化
-    ├── <op>_kernel_impl.h   # Kernel 核心类（简单算子可合并到 kernel.cpp）
-    └── <op>_tiling.h        # Tiling 结构体
+└── op_kernel/
+    └── <arch>/
+        ├── <op>_kernel.h        # Kernel Launch 声明
+        ├── <op>_kernel.cpp      # Kernel Launch 实现 + 模板实例化
+        ├── <op>_kernel_impl.h   # Kernel 核心类（简单算子可合并到 kernel.cpp）
+        └── <op>_tiling.h        # Tiling 结构体
 ```
 
 ## 四、构建系统
@@ -249,15 +217,23 @@ CMakeLists.txt 负责编译 AscendC Kernel 和 PyTorch 绑定库：
 
 ## 五、测试指南
 
-### 5.1 运行测试
+### 5.1 运行功能测试
 
 ```sh
-pytest test/ -v                                    # 运行所有测试
+pytest test/ -v                                    # 运行所有功能测试
 pytest test/segment_max_csr/test_segment_max_csr.py -v             # 单个算子测试
 pytest test/segment_max_csr/test_segment_max_csr.py::test_func -v  # 单个测试用例
 ```
 
-### 5.2 测试编写模式
+### 5.2 运行性能测试
+
+```sh
+NPU_DEVICE_ID=<device_id> python test/<op>/benchmark_<op>.py
+```
+
+其中，`<op>` 表示算子名，`<device_id>` 表示设备 ID。
+
+### 5.3 功能测试编写模式
 
 1. `torch.npu.set_device(int(os.environ.get("NPU_DEVICE_ID", 0)))` 指定 NPU 设备
 2. `torch.manual_seed(42)` 保证可复现
@@ -265,7 +241,7 @@ pytest test/segment_max_csr/test_segment_max_csr.py::test_func -v  # 单个测�
 4. 调用 `ops_gnn.<op>(...)` 
 5. 验证结果：设备类型、形状、数值正确性
 
-### 5.3 测试覆盖要求
+### 5.4 功能测试覆盖要求
 
 | 场景 | 说明 |
 |------|------|
@@ -291,10 +267,10 @@ pytest test/segment_max_csr/test_segment_max_csr.py::test_func -v  # 单个测�
                     │  csrc/pybind.cpp
                     │  (PYBIND11_MODULE 注册)
                     └─→ segment_max_csr()  [Host]
-                            │  csrc/npu/host/segment_max_csr/segment_max_csr.cpp
+                            │  csrc/npu/segment_max_csr/op_host/segment_max_csr.cpp
                             │  (维度解析、Tiling填充、dtype分发、Stream管理)
                             └─→ LaunchSegmentMaxCsrKernel<T>()
-                                    │  csrc/npu/kernel/segment_max_csr/segment_max_csr_kernel.cpp
+                                    │  csrc/npu/segment_max_csr/op_kernel/<arch>/segment_max_csr_kernel.cpp
                                     │  (获取AIV核数、<<<>>>启动)
                                     └─→ segment_max_csr_kernel<T>  [Device]
                                             │  segment_max_csr_kernel_impl.h
@@ -305,8 +281,8 @@ pytest test/segment_max_csr/test_segment_max_csr.py::test_func -v  # 单个测�
 
 - **Python**（`python/ops_gnn/<op>.py`）：类型注解、可选参数默认值、调用 `_pybind.<op>`
 - **PyBind**（`csrc/pybind.cpp`）：`m.def("<op>", &func, py::arg(...), ...)` 注册 C++ 函数
-- **Host**（`csrc/npu/host/<op>/`）：Tensor 维度解析 → Tiling 参数计算 → `torch::empty` 创建输出 → 按 `scalar_type` 分发模板 Launch。旧算子可以自行管理 Stream；Gather COO 必须复用 PyTorch 当前 NPU stream，不创建、同步或销毁私有 ACL Stream。
-- **Kernel Launch**（`csrc/npu/kernel/<op>/<op>_kernel.cpp`）：`GetCoreNumAiv()` 获取核数 → `<<<coreNum, nullptr, stream>>>` 启动 → 显式模板实例化
+- **Host**（`csrc/npu/<op>/op_host/`）：Tensor 维度解析 → Tiling 参数计算 → `torch::empty` 创建输出 → 按 `scalar_type` 分发模板 Launch。旧算子可以自行管理 Stream；Gather COO 必须复用 PyTorch 当前 NPU stream，不创建、同步或销毁私有 ACL Stream。
+- **Kernel Launch**（`csrc/npu/<op>/op_kernel/<arch>/<op>_kernel.cpp`）：`GetCoreNumAiv()` 获取核数 → `<<<coreNum, nullptr, stream>>>` 启动 → 显式模板实例化
 - **Kernel 实现**（`<op>_kernel_impl.h`）：`Init()` 解析 Tiling + 分配 Buffer/Event → `Process()` 按 Block 分配工作范围 → `Compute()` 双缓冲流水线（DataCopy → Max/Add → DataCopy）
 
 ### 6.2 新增算子文件清单
@@ -314,11 +290,11 @@ pytest test/segment_max_csr/test_segment_max_csr.py::test_func -v  # 单个测�
 以 `segment_max_csr` 为模板，每个新算子需创建：
 
 ```text
-csrc/npu/host/<op>/
+csrc/npu/<op>/op_host/
 ├── <op>.h                   # torch::Tensor <op>(torch::Tensor ...);
 └── <op>.cpp                 # Host 实现
 
-csrc/npu/kernel/<op>/
+csrc/npu/<op>/op_kernel/<arch>/
 ├── <op>_kernel.h            # template<typename T> void Launch<Op>Kernel(...);
 ├── <op>_kernel.cpp          # Launch 实现 + 模板实例化
 ├── <op>_kernel_impl.h       # Kernel 核心类 (Init/Process/Compute)
@@ -327,13 +303,15 @@ csrc/npu/kernel/<op>/
 python/ops_gnn/
 └── <op>.py                  # Python 接口
 
-test/
-└── test_<op>.py             # 单元测试
+test/<op>/
+├── golden.py                # CPU/参考实现
+├── test_<op>.py             # 功能测试
+└── benchmark_<op>.py        # 性能测试
 ```
 
 此外需修改两个文件：
 
-- `csrc/pybind.cpp`：`#include "host/<op>/<op>.h"` + `m.def("<op>", ...)`
+- `csrc/pybind.cpp`：`#include "<op>/op_host/<op>.h"` + `m.def("<op>", ...)`
 - `python/ops_gnn/__init__.py`：`from .<op> import <op>` + 加入 `__all__`
 
 简单算子可合并文件：无 Tiling 时省略 `_tiling.h`，逻辑简单时 `_kernel_impl.h` 可合并到 `_kernel.cpp`（参考 `add_sample`）。

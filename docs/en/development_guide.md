@@ -94,12 +94,12 @@ ops-gnn adopts a layered architecture of PyTorch extension + AscendC kernel:
 |   (PYBIND11_MODULE registration, param map)  |
 +---------------------------------------------+
 |              Host-side Operator Layer         |
-|   csrc/npu/host/<op>/<op>.cpp/.h            |
+|   csrc/npu/<op>/op_host/<op>.cpp/.h            |
 |   (Argument parsing, Tiling calc,            |
 |    Kernel launch, stream management)         |
 +---------------------------------------------+
 |              AscendC Kernel Layer             |
-|   csrc/npu/kernel/<op>/<op>_kernel.cpp/.h   |
+|   csrc/npu/<op>/op_kernel/<arch>/<op>_kernel.cpp/.h   |
 |   (AscendC SIMT/VF programming,              |
 |    vector computation, data movement)        |
 +---------------------------------------------+
@@ -118,46 +118,11 @@ ops-gnn adopts a layered architecture of PyTorch extension + AscendC kernel:
 ops-gnn
 ├── csrc/                           # C++/AscendC source code
 │   ├── pybind.cpp                  # PyTorch binding code
-│   └── npu/                        # NPU-related code
-│       ├── host/                   # Host-side code (organized by operator)
-│       │   ├── add_sample/
-│       │   │   ├── add_sample.h    # Host interface declaration
-│       │   │   └── add_sample.cpp  # Host implementation (Tiling + Launch)
-│       │   └── segment_max_csr/
-│       │       ├── segment_max_csr.h
-│       │       └── segment_max_csr.cpp
-│       ├── kernel/                 # AscendC kernel implementation (by operator)
-│       │   ├── add_sample/
-│       │   │   ├── add_sample_kernel.h   # Kernel Launch interface
-│       │   │   └── add_sample_kernel.cpp # Kernel implementation (AscendC SIMT)
-│       │   └── segment_max_csr/
-│       │       ├── segment_max_csr_kernel.h       # Kernel Launch interface
-│       │       ├── segment_max_csr_kernel.cpp     # Kernel entry + template instantiation
-│       │       ├── segment_max_csr_kernel_impl.h  # Kernel core implementation class
-│       │       └── segment_max_csr_tiling.h       # Tiling data structure
-│       └── sparse/                 # sparse operators (one subdirectory per op)
-│           ├── ind2ptr/
-│           │   ├── op_host/       # Host dispatch
-│           │   └── op_kernel/
-│           │       └── arch35/    # Ascend950 Kernel
-│           └── ptr2ind/
-│               ├── op_host/
-│               └── op_kernel/
-│                   └── arch35/
+│   └── npu/                        # NPU-related code (organized by operator)
 ├── docs/                           # Docs (API reference: docs/*/api_reference.md)
 ├── python/                         # Python source code
 │   └── ops_gnn/                    # Python package
-│       ├── __init__.py             # Package init, export list
-│       ├── add_sample.py           # add_sample Python interface
-│       ├── ind2ptr.py              # ind2ptr Python interface
-│       ├── ptr2ind.py              # ptr2ind Python interface
-│       ├── segment_max_csr.py      # segment_max_csr Python interface
-│       └── typing.py               # Type alias definitions
-├── test/                           # Tests (triggered by ./scripts/build.sh test)
-│   ├── test_import.py              # Import verification test
-│   ├── test_example.py             # add_sample operator test
-│   ├── test_segment_max_csr.py     # segment_max_csr operator test
-│   └── sparse/                     # sparse operator tests (ind2ptr/ptr2ind)
+├── test/                           # Test directory
 ├── scripts/                        # Build scripts
 │   └── build.sh                    # Unified build/test script (python/cpp/all/test)
 ├── cmake/                          # CMake configuration
@@ -170,17 +135,19 @@ ops-gnn
 └── LICENSE                         # CANN License
 ```
 
+Each operator directory under `csrc/npu` contains `op_host` and `op_kernel/<arch>`. Each operator directory under `test` contains `golden.py`, a functional test file, and a performance test file. Here, `<arch>` is the directory name for the target architecture.
+
 ### 2.3 Core File Descriptions
 
 | File | Description |
 |------|-------------|
 | `csrc/pybind.cpp` | PyTorch binding entry, registers all C++ operators to Python via `PYBIND11_MODULE` |
-| `csrc/npu/host/<op>/<op>.h` | Host-side operator interface declaration |
-| `csrc/npu/host/<op>/<op>.cpp` | Host-side operator implementation: Tensor dimension parsing, Tiling calc, dtype dispatch, Stream management |
-| `csrc/npu/kernel/<op>/<op>_kernel.h` | Kernel Launch function declaration (Host-side call entry) |
-| `csrc/npu/kernel/<op>/<op>_kernel.cpp` | Kernel Launch implementation + explicit template instantiation + `<<<>>>` launch syntax |
-| `csrc/npu/kernel/<op>/<op>_kernel_impl.h` | AscendC Kernel core class implementation (Init → Process → Compute pipeline) |
-| `csrc/npu/kernel/<op>/<op>_tiling.h` | Tiling data structure definition (parameter struct passed to Device side) |
+| `csrc/npu/<op>/op_host/<op>.h` | Host-side operator interface declaration |
+| `csrc/npu/<op>/op_host/<op>.cpp` | Host-side operator implementation: Tensor dimension parsing, Tiling calc, dtype dispatch, Stream management |
+| `csrc/npu/<op>/op_kernel/<arch>/<op>_kernel.h` | Kernel Launch function declaration (Host-side call entry) |
+| `csrc/npu/<op>/op_kernel/<arch>/<op>_kernel.cpp` | Kernel Launch implementation + explicit template instantiation + `<<<>>>` launch syntax |
+| `csrc/npu/<op>/op_kernel/<arch>/<op>_kernel_impl.h` | AscendC Kernel core class implementation (Init → Process → Compute pipeline) |
+| `csrc/npu/<op>/op_kernel/<arch>/<op>_tiling.h` | Tiling data structure definition (parameter struct passed to Device side) |
 | `python/ops_gnn/<op>.py` | Python interface: type annotations, default value handling, calls `_pybind.<op>` |
 | `python/ops_gnn/__init__.py` | Package entry, imports from modules and registers to `__all__` |
 | `python/ops_gnn/typing.py` | Type aliases (`Tensor`, `OptTensor`) |
@@ -216,15 +183,16 @@ ops-gnn
 Each operator strictly follows the following file split:
 
 ```text
-csrc/npu/
-├── host/<op>/
+csrc/npu/<op>/
+├── op_host/
 │   ├── <op>.h          # Host interface declaration
 │   └── <op>.cpp        # Host implementation
-└── kernel/<op>/
-    ├── <op>_kernel.h        # Kernel Launch declaration
-    ├── <op>_kernel.cpp      # Kernel Launch implementation + template instantiation
-    ├── <op>_kernel_impl.h   # Kernel core class (simple ops can merge into kernel.cpp)
-    └── <op>_tiling.h        # Tiling struct
+└── op_kernel/
+    └── <arch>/
+        ├── <op>_kernel.h        # Kernel Launch declaration
+        ├── <op>_kernel.cpp      # Kernel Launch implementation + template instantiation
+        ├── <op>_kernel_impl.h   # Kernel core class (simple ops can merge into kernel.cpp)
+        └── <op>_tiling.h        # Tiling struct
 ```
 
 ## 4. Build System
@@ -252,15 +220,23 @@ Key CMake variables:
 
 ## 5. Testing Guide
 
-### 5.1 Running Tests
+### 5.1 Running Functional Tests
 
 ```sh
-pytest test/ -v                                    # Run all tests
+pytest test/ -v                                    # Run all functional tests
 pytest test/segment_max_csr/test_segment_max_csr.py -v             # Single operator test
 pytest test/segment_max_csr/test_segment_max_csr.py::test_func -v  # Single test case
 ```
 
-### 5.2 Test Writing Pattern
+### 5.2 Running Performance Tests
+
+```sh
+NPU_DEVICE_ID=<device_id> python test/<op>/benchmark_<op>.py
+```
+
+Here, `<op>` is the operator name, and `<device_id>` is the device ID.
+
+### 5.3 Functional Test Writing Pattern
 
 1. `torch.npu.set_device(int(os.environ.get("NPU_DEVICE_ID", 0)))` to specify NPU device
 2. `torch.manual_seed(42)` for reproducibility
@@ -268,7 +244,7 @@ pytest test/segment_max_csr/test_segment_max_csr.py::test_func -v  # Single test
 4. Call `ops_gnn.<op>(...)`
 5. Verify results: device type, shape, numerical correctness
 
-### 5.3 Test Coverage Requirements
+### 5.4 Functional Test Coverage Requirements
 
 | Scenario | Description |
 |----------|-------------|
@@ -294,10 +270,10 @@ User Code
                     │  csrc/pybind.cpp
                     │  (PYBIND11_MODULE registration)
                     └─→ segment_max_csr()  [Host]
-                            │  csrc/npu/host/segment_max_csr/segment_max_csr.cpp
+                            │  csrc/npu/segment_max_csr/op_host/segment_max_csr.cpp
                             │  (dimension parsing, Tiling fill, dtype dispatch, Stream management)
                             └─→ LaunchSegmentMaxCsrKernel<T>()
-                                    │  csrc/npu/kernel/segment_max_csr/segment_max_csr_kernel.cpp
+                                    │  csrc/npu/segment_max_csr/op_kernel/<arch>/segment_max_csr_kernel.cpp
                                     │  (get AIV core count, <<<>>> launch)
                                     └─→ segment_max_csr_kernel<T>  [Device]
                                             │  segment_max_csr_kernel_impl.h
@@ -308,8 +284,8 @@ Each layer's responsibilities:
 
 - **Python** (`python/ops_gnn/<op>.py`): Type annotations, optional param defaults, calls `_pybind.<op>`
 - **PyBind** (`csrc/pybind.cpp`): `m.def("<op>", &func, py::arg(...), ...)` registers C++ function
-- **Host** (`csrc/npu/host/<op>/`): Tensor dimension parsing → Tiling calc → `torch::empty` create output → dtype dispatch launch. Legacy operators may manage their own stream; Gather COO must reuse PyTorch's current NPU stream and must not create, synchronize, or destroy a private ACL stream.
-- **Kernel Launch** (`csrc/npu/kernel/<op>/<op>_kernel.cpp`): `GetCoreNumAiv()` get core count → `<<<coreNum, nullptr, stream>>>` launch → explicit template instantiation
+- **Host** (`csrc/npu/<op>/op_host/`): Tensor dimension parsing → Tiling calc → `torch::empty` create output → dtype dispatch launch. Legacy operators may manage their own stream; Gather COO must reuse PyTorch's current NPU stream and must not create, synchronize, or destroy a private ACL stream.
+- **Kernel Launch** (`csrc/npu/<op>/op_kernel/<arch>/<op>_kernel.cpp`): `GetCoreNumAiv()` get core count → `<<<coreNum, nullptr, stream>>>` launch → explicit template instantiation
 - **Kernel Impl** (`<op>_kernel_impl.h`): `Init()` parse Tiling + allocate Buffer/Event → `Process()` assign work range per Block → `Compute()` double-buffer pipeline (DataCopy → Max/Add → DataCopy)
 
 ### 6.2 New Operator File Checklist
@@ -317,11 +293,11 @@ Each layer's responsibilities:
 Using `segment_max_csr` as a template, each new operator needs:
 
 ```text
-csrc/npu/host/<op>/
+csrc/npu/<op>/op_host/
 ├── <op>.h                   # torch::Tensor <op>(torch::Tensor ...);
 └── <op>.cpp                 # Host implementation
 
-csrc/npu/kernel/<op>/
+csrc/npu/<op>/op_kernel/<arch>/
 ├── <op>_kernel.h            # template<typename T> void Launch<Op>Kernel(...);
 ├── <op>_kernel.cpp          # Launch impl + template instantiation
 ├── <op>_kernel_impl.h       # Kernel core class (Init/Process/Compute)
@@ -330,13 +306,15 @@ csrc/npu/kernel/<op>/
 python/ops_gnn/
 └── <op>.py                  # Python interface
 
-test/
-└── test_<op>.py             # Unit test
+test/<op>/
+├── golden.py                # CPU/reference implementation
+├── test_<op>.py             # Functional tests
+└── benchmark_<op>.py        # Performance benchmark
 ```
 
 Additionally, two files must be modified:
 
-- `csrc/pybind.cpp`: `#include "host/<op>/<op>.h"` + `m.def("<op>", ...)`
+- `csrc/pybind.cpp`: `#include "<op>/op_host/<op>.h"` + `m.def("<op>", ...)`
 - `python/ops_gnn/__init__.py`: `from .<op> import <op>` + add to `__all__`
 
 Simple operators can merge files: omit `_tiling.h` when no Tiling, merge `_kernel_impl.h` into `_kernel.cpp` when logic is simple (see `add_sample`).
@@ -365,7 +343,7 @@ Simple operators can merge files: omit `_tiling.h` when no Tiling, merge `_kerne
 
 ## 7. More Resources
 
-- **[Back to README](../../README_EN.md)**
+- **[Back to README](../../README_en.md)**
 - **[AscendC Programming Guide](https://www.hiascend.com/document)**
 - **[PyTorch C++ Extensions](https://pytorch.org/tutorials/advanced/cpp_extension.html)**
 - **[CANN Community Edition Docs](https://www.hiascend.com/document)**

@@ -652,10 +652,10 @@ cmake -S . -B build/cmake_release \
   -DNPU_ARCH=dav-3510 -DCMAKE_BUILD_TYPE=Release
 cmake --build build/cmake_release -j4
 export PYTHONPATH=$PWD/python
-export NPU_DEVICE_ID=0
+export NPU_DEVICE_ID=<device_id>
 pytest -q test/gather_csr/test_gather_csr.py
-python test/gather_csr/verify_torch_scatter_reference.py
-python test/gather_csr/run_ascendoptest_gather_csr.py \
+python test/gather_csr/golden.py
+python test/gather_csr/benchmark_gather_csr.py --ascendoptest \
   --ascendoptest-root /path/to/AscendOpTest
 python test/gather_csr/benchmark_gather_csr.py --warmup 20 --iterations 101
 ```
@@ -731,14 +731,14 @@ pytest test/ -v
 pytest test/test_example.py -v
 pytest test/gather_csr/test_gather_csr.py -v
 pytest test/segment_max_csr/test_segment_max_csr.py -v
-pytest test/graclus_cluster/test_graclus_functional.py -v
-python -m pytest test/gather_coo/test_gather_coo_functional.py -v
-pytest test/random_walk -v
-pytest test/radius -v
-pytest test/sparse -v
+pytest test/graclus_cluster/test_graclus_cluster.py -v
+python -m pytest test/gather_coo/test_gather_coo.py -v
+pytest test/random_walk/test_random_walk.py -v
+pytest test/radius/test_radius.py -v
+pytest test/sparse/test_sparse.py -v
 
 # 运行 random_walk 性能测试
-python test/random_walk/benchmark.py --device npu:0
+NPU_DEVICE_ID=<device_id> python test/random_walk/benchmark_random_walk.py
 
 # 运行 radius 官方标杆性能测试
 python test/radius/benchmark_radius.py
