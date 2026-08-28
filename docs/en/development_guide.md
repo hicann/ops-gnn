@@ -12,7 +12,7 @@ For offline installation, click [here](https://www.hiascend.com/developer/downlo
 
 #### Install CANN
 
-CANN 9.1.0-beta.1 or later is required. Other versions are not currently supported.
+CANN 9.1.0 or later and HDK (driver/firmware) 25.7.rc1 or later are required. Other versions are not currently supported.
 
 ```sh
 chmod +x Ascend-cann-toolkit_${VERSION}_linux-$(arch).run
@@ -23,11 +23,15 @@ Where `${VERSION}` is the CANN version (e.g., 9.1.0) and `$(arch)` is the CPU ar
 
 #### Post-installation Configuration
 
-```sh
-source /usr/local/Ascend/cann-9.1.0-beta.1/bin/setenv.bash
+```bash
+source /usr/local/Ascend/ascend-toolkit/set_env.sh
 ```
 
-If CANN is installed in a different path, replace with the actual path.
+If CANN is installed in a custom path, run:
+
+```bash
+source ${install_path}/ascend-toolkit/set_env.sh
+```
 
 ### 1.2 Detailed CANN Installation Guide
 
@@ -43,28 +47,27 @@ ops-gnn depends on the following components:
 | CMake | 3.18+ | C++ build system |
 | GCC | 7.0+ | C++17 compiler |
 | PyTorch | 2.7+ | Ascend-adapted version from Ascend Community |
-| torch_npu | 26.0.0 | PyTorch NPU device backend |
-| CANN Toolkit | 9.1.0-beta.1+ | AscendC compiler, Bisheng compiler, runtime libraries |
+| torch_npu | Matched to PyTorch and CANN | PyTorch NPU device backend |
+| CANN Toolkit | 9.1.0+ | AscendC compiler, Bisheng compiler, runtime libraries |
+| HDK (driver/firmware) | 25.7.rc1+ | Ascend hardware driver and firmware |
 
 `torch` and `torch_npu` must be obtained from the [Ascend Community Download Page](https://www.hiascend.com/developer/download/community) for Ascend hardware-adapted versions.
+
+The supported platform is the Ascend 950 series; other platforms are not currently supported.
 
 ```sh
 # System toolchain
 sudo apt install build-essential cmake
 
 # Test dependencies (optional)
-pip3 install pytest pytest-cov
+pip install pytest pytest-cov
 ```
 
 ### 1.4 Install ops-gnn
 
 ```sh
-# Activate CANN environment
-source /usr/local/Ascend/cann-9.1.0-beta.1/bin/setenv.bash
-
 # Method 1: pip development mode
-cd /path/to/ops-gnn
-pip install -e .
+python3 -m pip install --no-build-isolation --no-deps -e .
 
 # Method 2: Build script
 cd scripts

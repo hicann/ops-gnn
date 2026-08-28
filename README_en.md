@@ -33,11 +33,11 @@ Each operator directory under `csrc/npu` contains `op_host` and `op_kernel/<arch
 
 - Python 3.9+
 - CMake 3.18+
+- CANN 9.1.0 or later + HDK (driver/firmware) 25.7.rc1 or later
 - PyTorch 2.7+
-- A torch_npu build matched to PyTorch and CANN (Gather COO was verified with PyTorch 2.7.1 / torch_npu 2.7.1.post4)
+- A torch_npu build matched to PyTorch and CANN
 - CANN Toolkit (AscendC compiler)
 - C++17 or later compiler
-- CANN 9.1.0 or later + HDK (driver/firmware) 25.7.rc1 or later
 - Supported platform: Ascend 950 series; other platforms are not supported yet
 
 ### CANN Environment Setup
@@ -74,9 +74,6 @@ cd scripts
 ### Method 3: Using CMake (Linux)
 
 ```bash
-# Use the CANN setup script that matches PyTorch/torch_npu on this machine.
-export CANN_SETENV=/path/to/cann/bin/setenv.bash
-source "$CANN_SETENV"
 
 mkdir -p build_cmake
 cd build_cmake
@@ -160,20 +157,17 @@ print(result.shape)  # torch.Size([4, 6, 64])
 
 ## Operator List
 
-| Operator | Description | Device Support |
-|----------|-------------|----------------|
-| `add_sample` | Element-wise addition of two tensors | NPU |
-| `gather_coo` | Expand source rows by sorted COO indices | NPU |
-| [`gather_csr`](docs/en/api_reference.md) | Expands segment features using CSR pointers | NPU |
-| `random_walk` | Uniform or node2vec-biased random walks on COO graphs | NPU |
-| `segment_max_csr` | Segmented max reduction on CSR format | NPU |
-| `radius` / `radius_graph` | Radius neighbor search (torch_cluster compatible, Ascend 950PR) | NPU |
-| `graclus_cluster` | Greedy graph clustering | NPU / CPU fallback for float64 |
-| `ind2ptr` | Sorted row indices to CSR row pointer (torch_sparse-aligned) | NPU |
-| `ptr2ind` | CSR row pointer to row indices (torch_sparse-aligned) | NPU |
-| `scatter` / `scatter_*` | torch_scatter-compatible indexed reductions | NPU / CPU fallback for float64 and int64 |
-
-See the [API reference](docs/en/api_reference.md#210-scatter--scatter-reductions) for the complete Scatter API, dtype tiers, and examples.
+| Operator | Description | Device Support | API Reference |
+|----------|-------------|----------------|---------------|
+| `gather_coo` | Expand source rows by sorted COO indices | NPU | [gather_coo — COO Row Expansion](docs/en/api_reference.md#25-gather_coo--coo-row-expansion) |
+| `gather_csr` | Expands segment features using CSR pointers | NPU | [gather_csr - CSR Segment Expansion](docs/en/api_reference.md#29-gather_csr---csr-segment-expansion) |
+| `random_walk` | Uniform or node2vec-biased random walks on COO graphs | NPU | [random_walk — NPU Random Walk](docs/en/api_reference.md#28-random_walk--npu-random-walk) |
+| `segment_max_csr` | Segmented max reduction on CSR format | NPU | [segment_max_csr — CSR Segmented Max](docs/en/api_reference.md#22-segment_max_csr--csr-segmented-max) |
+| `radius` / `radius_graph` | Radius neighbor search (torch_cluster compatible, Ascend 950PR) | NPU | [radius / radius_graph — Radius Neighbor Search](docs/en/api_reference.md#23-radius--radius_graph--radius-neighbor-search) |
+| `graclus_cluster` | Greedy graph clustering | NPU / CPU fallback for float64 | [graclus_cluster — Greedy Graph Clustering](docs/en/api_reference.md#24-graclus_cluster--greedy-graph-clustering) |
+| `ind2ptr` | Sorted row indices to CSR row pointer (torch_sparse-aligned) | NPU | [ind2ptr — Sorted Row Indices to CSR Row Pointer](docs/en/api_reference.md#26-ind2ptr--sorted-row-indices-to-csr-row-pointer) |
+| `ptr2ind` | CSR row pointer to row indices (torch_sparse-aligned) | NPU | [ptr2ind — CSR Row Pointer to Row Indices](docs/en/api_reference.md#27-ptr2ind--csr-row-pointer-to-row-indices) |
+| `scatter` / `scatter_*` | torch_scatter-compatible indexed reductions | NPU / CPU fallback for float64 and int64 | [scatter — Scatter Reductions](docs/en/api_reference.md#210-scatter--scatter-reductions) |
 
 ## Development Guide
 

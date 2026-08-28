@@ -306,7 +306,7 @@ edge_g = ops_gnn.radius_graph(x, 0.8)     # build K-NN graph (loop=False by defa
 - L1: float16 / bfloat16 / float32 (NPU); float64 via CPU fallback (bit-wise, not performance-tested)
 - Empty input returns `[2, 0]` LongTensor without entering the kernel
 
-### 2.4 graclus_cluster - Greedy Graph Clustering
+### 2.4 graclus_cluster — Greedy Graph Clustering
 
 **Function Signature:**
 
@@ -336,37 +336,12 @@ Returns a `torch.long` Tensor with shape `[num_nodes]`. Each element is the clus
 
 Implements the greedy graph clustering semantics of `torch_cluster.graclus_cluster`. The Python layer infers `num_nodes`, removes self-loops, shuffles edges when `weight` is absent, sorts edges by row, and converts COO to CSR. The NPU path launches an Ascend C kernel to visit nodes in random order and greedily match each unmarked node with an unmarked neighbor. When `weight` is provided, the neighbor with maximum weight is selected; otherwise the first unmarked neighbor is selected.
 
-**Implementation Architecture:**
-
-- **Kernel Mode**: Ascend C kernel implementation with host-side launch wrapper
-- **Data Layout**: COO inputs are preprocessed to CSR row pointer and sorted column tensors
-- **Parallelism**: The NPU path processes the CSR adjacency and writes one cluster ID per node
-
 **Notes:**
 
 - `row` and `col` must be 1D `torch.long` tensors
 - `row`, `col`, and `weight` must be on the same device
 - The algorithm contains randomness; set `torch.manual_seed` before calling the operator when reproducible output is required
 - Self-loops are removed before clustering
-- float64 weights follow the task-book L2 CPU fallback semantics
-
-**Usage Example:**
-
-```python
-import torch
-import ops_gnn
-
-torch.npu.set_device(4)
-torch.manual_seed(42)
-
-row = torch.tensor([0, 1, 1, 2], dtype=torch.long, device="npu")
-col = torch.tensor([1, 0, 2, 1], dtype=torch.long, device="npu")
-weight = torch.tensor([0.5, 0.5, 1.0, 1.0], dtype=torch.float32, device="npu")
-
-cluster = ops_gnn.graclus_cluster(row, col, weight, num_nodes=3)
-assert cluster.device.type == "npu"
-assert cluster.shape == (3,)
-```
 
 ### 2.5 gather_coo — COO Row Expansion
 
@@ -678,7 +653,6 @@ out = gather_csr(src, indptr)
 **Build and test:**
 
 ```bash
-source ${ASCEND_HOME_PATH}/bin/setenv.bash
 # Install torch_scatter >= 2.1.0 for the CPU reference.
 cmake -S . -B build/cmake_release \
   -DNPU_ARCH=dav-3510 -DCMAKE_BUILD_TYPE=Release

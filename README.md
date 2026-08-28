@@ -33,11 +33,11 @@ ops-gnn/
 
 - Python 3.9+
 - CMake 3.18+
+- CANN 9.1.0 及以上 + HDK（驱动/固件）25.7.rc1 及以上
 - PyTorch 2.7+
-- 与 PyTorch、CANN 匹配的 torch_npu（Gather COO 实测为 PyTorch 2.7.1 / torch_npu 2.7.1.post4）
+- 与 PyTorch、CANN 匹配的 torch_npu
 - CANN Toolkit (AscendC 编译器)
 - C++17 或更高版本编译器
-- CANN 9.1.0 及以上 + HDK（驱动/固件）25.7.rc1 及以上
 - 支持平台：Ascend 950系列；暂不支持其他平台
 
 ### CANN 环境配置
@@ -74,9 +74,6 @@ cd scripts
 ### 方法3：使用CMake（Linux）
 
 ```bash
-# 使用当前机器上与 PyTorch/torch_npu 匹配的 CANN 初始化脚本
-export CANN_SETENV=/path/to/cann/bin/setenv.bash
-source "$CANN_SETENV"
 
 mkdir -p build_cmake
 cd build_cmake
@@ -160,20 +157,17 @@ print(result.shape)  # torch.Size([4, 6, 64])
 
 ## 算子列表
 
-| 算子 | 功能 | 设备支持 |
-|------|------|----------|
-| `add_sample` | 两个 tensor 逐元素相加 | NPU |
-| `gather_coo` | 按有序 COO 索引扩展源行 | NPU |
-| [`gather_csr`](docs/zh/api_reference.md) | 按 CSR 指针展开 segment 特征 | NPU |
-| `random_walk` | COO 图上的均匀或 node2vec 偏置随机游走 | NPU |
-| `segment_max_csr` | CSR 格式的分段最大值运算 | NPU |
-| `radius` / `radius_graph` | 半径内邻居搜索（torch_cluster 兼容，Ascend 950PR） | NPU |
-| `graclus_cluster` | 图贪心聚类 | NPU / CPU float64 回退 |
-| `ind2ptr` | 有序行索引转 CSR 行指针（对齐 torch_sparse） | NPU |
-| `ptr2ind` | CSR 行指针转行索引（对齐 torch_sparse） | NPU |
-| `scatter` / `scatter_*` | 与 torch_scatter 对齐的索引分组归约 | NPU / CPU float64、int64 回退 |
-
-Scatter 的完整接口、dtype 分级和使用示例见 [API 文档](docs/zh/api_reference.md#210-scatter--scatter-系列归约)。
+| 算子 | 功能 | 设备支持 | API 文档 |
+|------|------|----------|----------|
+| `gather_coo` | 按有序 COO 索引扩展源行 | NPU | [gather_coo — COO 行扩展](docs/zh/api_reference.md#25-gather_coo--coo-行扩展) |
+| `gather_csr` | 按 CSR 指针展开 segment 特征 | NPU | [gather_csr - CSR 分段展开](docs/zh/api_reference.md#29-gather_csr---csr-分段展开) |
+| `random_walk` | COO 图上的均匀或 node2vec 偏置随机游走 | NPU | [random_walk — NPU 随机游走](docs/zh/api_reference.md#28-random_walk--npu-随机游走) |
+| `segment_max_csr` | CSR 格式的分段最大值运算 | NPU | [segment_max_csr — CSR 分段最大值](docs/zh/api_reference.md#22-segment_max_csr--csr-分段最大值) |
+| `radius` / `radius_graph` | 半径内邻居搜索（torch_cluster 兼容，Ascend 950PR） | NPU | [radius / radius_graph — 半径内邻居搜索](docs/zh/api_reference.md#23-radius--radius_graph--半径内邻居搜索) |
+| `graclus_cluster` | 图贪心聚类 | NPU / CPU float64 回退 | [graclus_cluster — 图贪心聚类](docs/zh/api_reference.md#24-graclus_cluster--图贪心聚类) |
+| `ind2ptr` | 有序行索引转 CSR 行指针（对齐 torch_sparse） | NPU | [ind2ptr — 行索引转 CSR 行指针](docs/zh/api_reference.md#26-ind2ptr--行索引转-csr-行指针) |
+| `ptr2ind` | CSR 行指针转行索引（对齐 torch_sparse） | NPU | [ptr2ind — CSR 行指针转行索引](docs/zh/api_reference.md#27-ptr2ind--csr-行指针转行索引) |
+| `scatter` / `scatter_*` | 与 torch_scatter 对齐的索引分组归约 | NPU / CPU float64、int64 回退 | [scatter — Scatter 系列归约](docs/zh/api_reference.md#210-scatter--scatter-系列归约) |
 
 ## 开发指南
 

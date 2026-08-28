@@ -305,7 +305,7 @@ edge_g = ops_gnn.radius_graph(x, 0.8)     # 构建 K-NN 图（默认 loop=False�
 - L1 支持 float16 / bfloat16 / float32（NPU 路径）；float64 走 CPU 回退（bit-wise，不参与性能考核）
 - 空输入返回 `[2, 0]` LongTensor，不进入 kernel
 
-### 2.4 图贪心聚类接口
+### 2.4 graclus_cluster — 图贪心聚类
 
 **函数签名：**
 
@@ -646,7 +646,6 @@ out = gather_csr(src, indptr)
 **构建与测试：**
 
 ```bash
-source ${ASCEND_HOME_PATH}/bin/setenv.bash
 # CPU 参考实现要求 torch_scatter >= 2.1.0。
 cmake -S . -B build/cmake_release \
   -DNPU_ARCH=dav-3510 -DCMAKE_BUILD_TYPE=Release

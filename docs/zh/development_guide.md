@@ -12,7 +12,7 @@
 
 #### 安装 CANN
 
-请使用 CANN 9.1.0-beta.1 及以上版本，其他版本暂不支持。
+请使用 CANN 9.1.0 及以上版本，并配套 HDK（驱动/固件）25.7.rc1 及以上版本，其他版本暂不支持。
 
 ```sh
 chmod +x Ascend-cann-toolkit_${VERSION}_linux-$(arch).run
@@ -23,11 +23,15 @@ chmod +x Ascend-cann-toolkit_${VERSION}_linux-$(arch).run
 
 #### 安装后配置
 
-```sh
-source /usr/local/Ascend/cann-9.1.0-beta.1/bin/setenv.bash
+```bash
+source /usr/local/Ascend/ascend-toolkit/set_env.sh
 ```
 
-若 CANN 安装在其他路径，请替换为实际路径。
+如果 CANN 安装在自定义路径，请执行：
+
+```bash
+source ${install_path}/ascend-toolkit/set_env.sh
+```
 
 ### 1.2 CANN 详细安装指南
 
@@ -43,28 +47,27 @@ ops-gnn 依赖以下组件：
 | CMake | 3.18+ | C++ 构建系统 |
 | GCC | 7.0+ | C++17 编译器 |
 | PyTorch | 2.7+ | 需从昇腾社区获取 NPU 适配版本 |
-| torch_npu | 26.0.0 | PyTorch NPU 设备后端 |
-| CANN Toolkit | 9.1.0-beta.1+ | AscendC 编译器、Bisheng 编译器、运行时库 |
+| torch_npu | 与 PyTorch、CANN 匹配 | PyTorch NPU 设备后端 |
+| CANN Toolkit | 9.1.0+ | AscendC 编译器、Bisheng 编译器、运行时库 |
+| HDK（驱动/固件） | 25.7.rc1+ | Ascend 硬件驱动和固件 |
 
 `torch` 和 `torch_npu` 需从[昇腾社区下载页面](https://www.hiascend.com/developer/download/community)获取适配 Ascend 硬件的版本。
+
+支持平台为 Ascend 950 系列，暂不支持其他平台。
 
 ```sh
 # 系统工具链
 sudo apt install build-essential cmake
 
 # 测试依赖（可选）
-pip3 install pytest pytest-cov
+pip install pytest pytest-cov
 ```
 
 ### 1.4 安装 ops-gnn
 
 ```sh
-# 激活 CANN 环境
-source /usr/local/Ascend/cann-9.1.0-beta.1/bin/setenv.bash
-
 # 方式一：pip 开发模式安装
-cd /path/to/ops-gnn
-pip install -e .
+python3 -m pip install --no-build-isolation --no-deps -e .
 
 # 方式二：构建脚本安装
 cd scripts
