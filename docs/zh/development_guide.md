@@ -100,7 +100,7 @@ ops-gnn 采用 PyTorch 扩展 + AscendC 内核的分层架构：
 │   (参数解析、Tiling 计算、Kernel 启动、流管理)  │
 ├─────────────────────────────────────────────┤
 │              AscendC Kernel 层              │
-│   csrc/npu/<op>/op_kernel/<arch>/<op>_kernel.cpp/.h   │
+│   csrc/npu/<op>/op_kernel/<arch>/<op>.cpp/.h          │
 │   (AscendC SIMT/VF 编程、向量计算、数据搬移)    │
 └─────────────────────────────────────────────┘
 ```
@@ -144,9 +144,9 @@ ops-gnn
 | `csrc/pybind.cpp` | PyTorch 绑定入口，通过 `PYBIND11_MODULE` 注册所有 C++ 算子到 Python |
 | `csrc/npu/<op>/op_host/<op>.h` | Host 端算子接口声明，定义函数签名 |
 | `csrc/npu/<op>/op_host/<op>.cpp` | Host 端算子实现：Tensor 维度解析、Tiling 参数计算、dtype 分发、Stream 管理 |
-| `csrc/npu/<op>/op_kernel/<arch>/<op>_kernel.h` | Kernel Launch 函数声明（Host 端调用入口） |
-| `csrc/npu/<op>/op_kernel/<arch>/<op>_kernel.cpp` | Kernel Launch 实现 + 模板显式实例化 + `<<<>>>` 启动语法 |
-| `csrc/npu/<op>/op_kernel/<arch>/<op>_kernel_impl.h` | AscendC Kernel 核心类实现（Init → Process → Compute 流水线） |
+| `csrc/npu/<op>/op_kernel/<arch>/<op>.h` | Kernel Launch 函数声明（Host 端调用入口） |
+| `csrc/npu/<op>/op_kernel/<arch>/<op>.cpp` | Kernel Launch 实现 + 模板显式实例化 + `<<<>>>` 启动语法 |
+| `csrc/npu/<op>/op_kernel/<arch>/<op>_kernel.h` | AscendC Kernel 核心类实现（Init → Process → Compute 流水线） |
 | `csrc/npu/<op>/op_kernel/<arch>/<op>_tiling.h` | Tiling 数据结构定义（传递给 Device 端的参数结构体） |
 | `python/ops_gnn/<op>.py` | Python 接口封装：类型注解、参数默认值处理、调用 `_pybind.<op>` |
 | `python/ops_gnn/__init__.py` | 包入口，从各模块导入并注册到 `__all__` |
@@ -189,9 +189,9 @@ csrc/npu/<op>/
 │   └── <op>.cpp        # Host 实现
 └── op_kernel/
     └── <arch>/
-        ├── <op>_kernel.h        # Kernel Launch 声明
-        ├── <op>_kernel.cpp      # Kernel Launch 实现 + 模板实例化
-        ├── <op>_kernel_impl.h   # Kernel 核心类（简单算子可合并到 kernel.cpp）
+        ├── <op>.h               # Kernel Launch 声明
+        ├── <op>.cpp             # Kernel Launch 实现 + 模板实例化
+        ├── <op>_kernel.h        # Kernel 核心类（简单算子可合并到 <op>.cpp）
         └── <op>_tiling.h        # Tiling 结构体
 ```
 
@@ -273,10 +273,10 @@ NPU_DEVICE_ID=<device_id> python test/<op>/benchmark_<op>.py
                             │  csrc/npu/segment_max_csr/op_host/segment_max_csr.cpp
                             │  (维度解析、Tiling填充、dtype分发、Stream管理)
                             └─→ LaunchSegmentMaxCsrKernel<T>()
-                                    │  csrc/npu/segment_max_csr/op_kernel/<arch>/segment_max_csr_kernel.cpp
+                                    │  csrc/npu/segment_max_csr/op_kernel/<arch>/segment_max_csr.cpp
                                     │  (获取AIV核数、<<<>>>启动)
                                     └─→ segment_max_csr_kernel<T>  [Device]
-                                            │  segment_max_csr_kernel_impl.h
+                                            │  segment_max_csr_kernel.h
                                             │  (Init → Process → Compute 流水线)
 ```
 
@@ -285,8 +285,8 @@ NPU_DEVICE_ID=<device_id> python test/<op>/benchmark_<op>.py
 - **Python**（`python/ops_gnn/<op>.py`）：类型注解、可选参数默认值、调用 `_pybind.<op>`
 - **PyBind**（`csrc/pybind.cpp`）：`m.def("<op>", &func, py::arg(...), ...)` 注册 C++ 函数
 - **Host**（`csrc/npu/<op>/op_host/`）：Tensor 维度解析 → Tiling 参数计算 → `torch::empty` 创建输出 → 按 `scalar_type` 分发模板 Launch。旧算子可以自行管理 Stream；Gather COO 必须复用 PyTorch 当前 NPU stream，不创建、同步或销毁私有 ACL Stream。
-- **Kernel Launch**（`csrc/npu/<op>/op_kernel/<arch>/<op>_kernel.cpp`）：`GetCoreNumAiv()` 获取核数 → `<<<coreNum, nullptr, stream>>>` 启动 → 显式模板实例化
-- **Kernel 实现**（`<op>_kernel_impl.h`）：`Init()` 解析 Tiling + 分配 Buffer/Event → `Process()` 按 Block 分配工作范围 → `Compute()` 双缓冲流水线（DataCopy → Max/Add → DataCopy）
+- **Kernel Launch**（`csrc/npu/<op>/op_kernel/<arch>/<op>.cpp`）：`GetCoreNumAiv()` 获取核数 → `<<<coreNum, nullptr, stream>>>` 启动 → 显式模板实例化
+- **Kernel 实现**（`<op>_kernel.h`）：`Init()` 解析 Tiling + 分配 Buffer/Event → `Process()` 按 Block 分配工作范围 → `Compute()` 双缓冲流水线（DataCopy → Max/Add → DataCopy）
 
 ### 6.2 新增算子文件清单
 
@@ -298,9 +298,9 @@ csrc/npu/<op>/op_host/
 └── <op>.cpp                 # Host 实现
 
 csrc/npu/<op>/op_kernel/<arch>/
-├── <op>_kernel.h            # template<typename T> void Launch<Op>Kernel(...);
-├── <op>_kernel.cpp          # Launch 实现 + 模板实例化
-├── <op>_kernel_impl.h       # Kernel 核心类 (Init/Process/Compute)
+├── <op>.h                   # template<typename T> void Launch<Op>Kernel(...);
+├── <op>.cpp                 # Launch 实现 + 模板实例化
+├── <op>_kernel.h            # Kernel 核心类 (Init/Process/Compute)
 └── <op>_tiling.h            # struct <Op>TilingData { uint32_t/uint64_t ... };
 
 python/ops_gnn/
@@ -317,13 +317,13 @@ test/<op>/
 - `csrc/pybind.cpp`：`#include "<op>/op_host/<op>.h"` + `m.def("<op>", ...)`
 - `python/ops_gnn/__init__.py`：`from .<op> import <op>` + 加入 `__all__`
 
-简单算子可合并文件：无 Tiling 时省略 `_tiling.h`，逻辑简单时 `_kernel_impl.h` 可合并到 `_kernel.cpp`（参考 `add_sample`）。
+简单算子可合并文件：无 Tiling 时省略 `_tiling.h`，逻辑简单时 `<op>_kernel.h` 可合并到 `<op>.cpp`（参考 `ptr2ind`）。
 
 ### 6.3 两种 Kernel 模式
 
-| 特性 | add_sample | segment_max_csr |
+| 特性 | ptr2ind | segment_max_csr |
 |------|-----------|----------------|
-| 文件数 | 1个 kernel.cpp | kernel + impl + tiling（4文件） |
+| 文件数 | 2个（.h + .cpp） | launch + kernel + tiling（4文件） |
 | 编程模型 | SIMT (`__simt_vf__` + `VF_CALL`) | Kernel类 (TPipe + Buffer + Event) |
 | 数据搬移 | 直接 GM 读写 | DataCopy + 双缓冲流水线 |
 | Tiling | 无（标量参数直传） | Tiling 结构体 |

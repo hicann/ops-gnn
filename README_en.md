@@ -89,7 +89,6 @@ pip install pytest pytest-cov
 
 # Quick start: run a single or a few test groups first
 pytest test/test_import.py -v            # Import tests
-pytest test/test_example.py -v           # A single NPU operator test (add_sample)
 
 # Run all functional tests
 pytest test/ -v
@@ -118,12 +117,6 @@ Here, `<op>` is the operator name, and `<device_id>` is the device ID.
 ```python
 import torch
 import ops_gnn
-
-# NPU tensor addition
-src1 = torch.tensor([1, 2, 3, 4, 5], dtype=torch.uint8, device='npu')
-src2 = torch.tensor([5, 4, 3, 2, 1], dtype=torch.uint8, device='npu')
-result = ops_gnn.add_sample(src1, src2)
-print(result)  # output: tensor([6, 6, 6, 6, 6], device='npu:0', dtype=torch.uint8)
 
 # CSR segment max operation
 src = torch.tensor([[1, 2], [3, 4], [5, 6], [7, 8]], dtype=torch.float32, device='npu')

@@ -7,8 +7,8 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
+#include "scatter.h"
 #include "scatter_kernel.h"
-#include "scatter_kernel_impl.h"
 
 #include "tiling/platform/platform_ascendc.h"
 
@@ -206,7 +206,7 @@ static void LaunchTyped(void* src, int64_t* index, void* out, int32_t* count,
     }
 }
 
-void LaunchScatterKernel(void* src, int64_t* index, void* out, int32_t* count,
+void Scatter(void* src, int64_t* index, void* out, int32_t* count,
                          void* argOut, ScatterDType dtype,
                          const ScatterTilingData& tiling, aclrtStream stream)
 {

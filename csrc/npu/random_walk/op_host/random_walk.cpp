@@ -10,7 +10,7 @@
 
 #include "random_walk.h"
 
-#include "random_walk/op_kernel/arch35/random_walk_kernel.h"
+#include "random_walk/op_kernel/arch35/random_walk.h"
 #include "torch_npu/csrc/aten/NPUGeneratorImpl.h"
 #include "torch_npu/csrc/core/npu/NPUStream.h"
 
@@ -137,7 +137,7 @@ std::tuple<torch::Tensor, torch::Tensor> random_walk_npu(
 
     // Flush queued PyTorch preprocessing before launching directly on the underlying ACL stream.
     aclrtStream stream = c10_npu::getCurrentNPUStream(start.get_device()).stream();
-    LaunchRandomWalkKernel(
+    RandomWalk(
         rowptr.data_ptr<int64_t>(),
         col.data_ptr<int64_t>(),
         start.data_ptr<int64_t>(),

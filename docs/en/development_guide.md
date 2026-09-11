@@ -102,7 +102,7 @@ ops-gnn adopts a layered architecture of PyTorch extension + AscendC kernel:
 |    Kernel launch, stream management)         |
 +---------------------------------------------+
 |              AscendC Kernel Layer             |
-|   csrc/npu/<op>/op_kernel/<arch>/<op>_kernel.cpp/.h   |
+|   csrc/npu/<op>/op_kernel/<arch>/<op>.cpp/.h          |
 |   (AscendC SIMT/VF programming,              |
 |    vector computation, data movement)        |
 +---------------------------------------------+
@@ -147,9 +147,9 @@ Each operator directory under `csrc/npu` contains `op_host` and `op_kernel/<arch
 | `csrc/pybind.cpp` | PyTorch binding entry, registers all C++ operators to Python via `PYBIND11_MODULE` |
 | `csrc/npu/<op>/op_host/<op>.h` | Host-side operator interface declaration |
 | `csrc/npu/<op>/op_host/<op>.cpp` | Host-side operator implementation: Tensor dimension parsing, Tiling calc, dtype dispatch, Stream management |
-| `csrc/npu/<op>/op_kernel/<arch>/<op>_kernel.h` | Kernel Launch function declaration (Host-side call entry) |
-| `csrc/npu/<op>/op_kernel/<arch>/<op>_kernel.cpp` | Kernel Launch implementation + explicit template instantiation + `<<<>>>` launch syntax |
-| `csrc/npu/<op>/op_kernel/<arch>/<op>_kernel_impl.h` | AscendC Kernel core class implementation (Init → Process → Compute pipeline) |
+| `csrc/npu/<op>/op_kernel/<arch>/<op>.h` | Kernel Launch function declaration (Host-side call entry) |
+| `csrc/npu/<op>/op_kernel/<arch>/<op>.cpp` | Kernel Launch implementation + explicit template instantiation + `<<<>>>` launch syntax |
+| `csrc/npu/<op>/op_kernel/<arch>/<op>_kernel.h` | AscendC Kernel core class implementation (Init → Process → Compute pipeline) |
 | `csrc/npu/<op>/op_kernel/<arch>/<op>_tiling.h` | Tiling data structure definition (parameter struct passed to Device side) |
 | `python/ops_gnn/<op>.py` | Python interface: type annotations, default value handling, calls `_pybind.<op>` |
 | `python/ops_gnn/__init__.py` | Package entry, imports from modules and registers to `__all__` |
@@ -192,9 +192,9 @@ csrc/npu/<op>/
 │   └── <op>.cpp        # Host implementation
 └── op_kernel/
     └── <arch>/
-        ├── <op>_kernel.h        # Kernel Launch declaration
-        ├── <op>_kernel.cpp      # Kernel Launch implementation + template instantiation
-        ├── <op>_kernel_impl.h   # Kernel core class (simple ops can merge into kernel.cpp)
+        ├── <op>.h               # Kernel Launch declaration
+        ├── <op>.cpp             # Kernel Launch implementation + template instantiation
+        ├── <op>_kernel.h        # Kernel core class (simple ops can merge into <op>.cpp)
         └── <op>_tiling.h        # Tiling struct
 ```
 
@@ -276,10 +276,10 @@ User Code
                             │  csrc/npu/segment_max_csr/op_host/segment_max_csr.cpp
                             │  (dimension parsing, Tiling fill, dtype dispatch, Stream management)
                             └─→ LaunchSegmentMaxCsrKernel<T>()
-                                    │  csrc/npu/segment_max_csr/op_kernel/<arch>/segment_max_csr_kernel.cpp
+                                    │  csrc/npu/segment_max_csr/op_kernel/<arch>/segment_max_csr.cpp
                                     │  (get AIV core count, <<<>>> launch)
                                     └─→ segment_max_csr_kernel<T>  [Device]
-                                            │  segment_max_csr_kernel_impl.h
+                                            │  segment_max_csr_kernel.h
                                             │  (Init → Process → Compute pipeline)
 ```
 
@@ -288,8 +288,8 @@ Each layer's responsibilities:
 - **Python** (`python/ops_gnn/<op>.py`): Type annotations, optional param defaults, calls `_pybind.<op>`
 - **PyBind** (`csrc/pybind.cpp`): `m.def("<op>", &func, py::arg(...), ...)` registers C++ function
 - **Host** (`csrc/npu/<op>/op_host/`): Tensor dimension parsing → Tiling calc → `torch::empty` create output → dtype dispatch launch. Legacy operators may manage their own stream; Gather COO must reuse PyTorch's current NPU stream and must not create, synchronize, or destroy a private ACL stream.
-- **Kernel Launch** (`csrc/npu/<op>/op_kernel/<arch>/<op>_kernel.cpp`): `GetCoreNumAiv()` get core count → `<<<coreNum, nullptr, stream>>>` launch → explicit template instantiation
-- **Kernel Impl** (`<op>_kernel_impl.h`): `Init()` parse Tiling + allocate Buffer/Event → `Process()` assign work range per Block → `Compute()` double-buffer pipeline (DataCopy → Max/Add → DataCopy)
+- **Kernel Launch** (`csrc/npu/<op>/op_kernel/<arch>/<op>.cpp`): `GetCoreNumAiv()` get core count → `<<<coreNum, nullptr, stream>>>` launch → explicit template instantiation
+- **Kernel Impl** (`<op>_kernel.h`): `Init()` parse Tiling + allocate Buffer/Event → `Process()` assign work range per Block → `Compute()` double-buffer pipeline (DataCopy → Max/Add → DataCopy)
 
 ### 6.2 New Operator File Checklist
 
@@ -301,9 +301,9 @@ csrc/npu/<op>/op_host/
 └── <op>.cpp                 # Host implementation
 
 csrc/npu/<op>/op_kernel/<arch>/
-├── <op>_kernel.h            # template<typename T> void Launch<Op>Kernel(...);
-├── <op>_kernel.cpp          # Launch impl + template instantiation
-├── <op>_kernel_impl.h       # Kernel core class (Init/Process/Compute)
+├── <op>.h                   # template<typename T> void Launch<Op>Kernel(...);
+├── <op>.cpp                 # Launch impl + template instantiation
+├── <op>_kernel.h            # Kernel core class (Init/Process/Compute)
 └── <op>_tiling.h            # struct <Op>TilingData { uint32_t/uint64_t ... };
 
 python/ops_gnn/
@@ -320,13 +320,13 @@ Additionally, two files must be modified:
 - `csrc/pybind.cpp`: `#include "<op>/op_host/<op>.h"` + `m.def("<op>", ...)`
 - `python/ops_gnn/__init__.py`: `from .<op> import <op>` + add to `__all__`
 
-Simple operators can merge files: omit `_tiling.h` when no Tiling, merge `_kernel_impl.h` into `_kernel.cpp` when logic is simple (see `add_sample`).
+Simple operators can merge files: omit `_tiling.h` when no Tiling, merge `<op>_kernel.h` into `<op>.cpp` when logic is simple (see `ptr2ind`).
 
 ### 6.3 Two Kernel Modes
 
-| Feature | add_sample | segment_max_csr |
+| Feature | ptr2ind | segment_max_csr |
 |---------|-----------|----------------|
-| File count | 1 kernel.cpp | kernel + impl + tiling (4 files) |
+| File count | 2 files (.h + .cpp) | launch + kernel + tiling (4 files) |
 | Programming model | SIMT (`__simt_vf__` + `VF_CALL`) | Kernel class (TPipe + Buffer + Event) |
 | Data movement | Direct GM read/write | DataCopy + double-buffer pipeline |
 | Tiling | None (scalar params direct) | Tiling struct |

@@ -26,73 +26,7 @@ OptTensor = Optional[torch.Tensor]
 
 ## 二、核心算子API
 
-### 2.1 add_sample — 逐元素加法
-
-**函数签名：**
-
-```python
-def add_sample(
-    src1: Tensor,
-    src2: Tensor,
-) -> Tensor:
-```
-
-**参数说明：**
-
-| 参数 | 类型 | 输入/输出 | 说明 |
-|------|------|------|------|
-| src1 | Tensor | 输入 | 第一个输入 Tensor，必须位于 NPU 设备 |
-| src2 | Tensor | 输入 | 第二个输入 Tensor，必须位于 NPU 设备，与 `src1` 形状相同 |
-
-**返回值说明：**
-
-返回一个新的 Tensor，为 `src1` 和 `src2` 的逐元素相加结果，位于 NPU 设备，形状和 dtype 与输入相同。
-
-**功能说明：**
-
-对两个 Tensor 执行逐元素加法运算（`src1[i] + src2[i]`），在 NPU 上使用 AscendC SIMT 模式并行计算，支持 uint8 类型。
-
-**实现架构：**
-
-- **Kernel 模式**：SIMT（`__simt_vf__` + `VF_CALL`），单文件实现
-- **数据搬移**：直接 GM 读写，无 Tiling
-- **适用场景**：逐元素操作，逻辑简单的 element-wise 算子
-
-**注意事项：**
-
-- 两个输入 Tensor 必须形状一致
-- 输入必须位于 NPU 设备（`device='npu'`）
-- 当前仅支持 uint8（`torch.uint8`）类型
-- 运算直接在 NPU 上执行，无 CPU 回退路径
-
-**使用示例：**
-
-```python
-import torch
-import ops_gnn
-
-# 设置 NPU 设备
-device_id = int(os.environ.get("NPU_DEVICE_ID", 0))
-torch.npu.set_device(device_id)
-torch.manual_seed(42)
-
-# 创建输入 Tensor（NPU 设备）
-src1 = torch.randint(0, 128, (1024, 1024), dtype=torch.uint8, device='npu')
-src2 = torch.randint(0, 128, (1024, 1024), dtype=torch.uint8, device='npu')
-
-# 调用算子
-result = ops_gnn.add_sample(src1, src2)
-
-# 验证结果
-expected = src1 + src2
-assert result.device.type == 'npu'
-assert result.shape == (1024, 1024)
-assert torch.equal(result, expected)
-```
-
----
-
-### 2.2 segment_max_csr — CSR 分段最大值
+### 2.1 segment_max_csr — CSR 分段最大值
 
 **函数签名：**
 
@@ -250,7 +184,7 @@ result = ops_gnn.segment_max_csr(src, indptr)
 
 ---
 
-### 2.3 radius / radius_graph — 半径内邻居搜索
+### 2.2 radius / radius_graph — 半径内邻居搜索
 
 与 `torch_cluster.radius` / `radius_graph`（>= 1.6.0）接口完全一致的 NPU 实现，
 Ascend 950PR。对 `y` 中每个查询点，在 `x` 中查找欧氏距离 `dist² <= r²` 的所有
@@ -305,7 +239,7 @@ edge_g = ops_gnn.radius_graph(x, 0.8)     # 构建 K-NN 图（默认 loop=False�
 - L1 支持 float16 / bfloat16 / float32（NPU 路径）；float64 走 CPU 回退（bit-wise，不参与性能考核）
 - 空输入返回 `[2, 0]` LongTensor，不进入 kernel
 
-### 2.4 graclus_cluster — 图贪心聚类
+### 2.3 graclus_cluster — 图贪心聚类
 
 **函数签名：**
 
@@ -342,7 +276,7 @@ Python 层复现 `torch_cluster.graclus_cluster` 预处理：推断 `num_nodes`�
 - 算法包含随机性；固定 `torch.manual_seed` 后结果可复现。
 - 自环会在 Python 层去除。
 
-### 2.5 gather_coo — COO 行扩展
+### 2.4 gather_coo — COO 行扩展
 
 **函数签名：**
 
@@ -389,7 +323,7 @@ assert returned.data_ptr() == provided.data_ptr()
 
 ---
 
-### 2.6 ind2ptr — 行索引转 CSR 行指针
+### 2.5 ind2ptr — 行索引转 CSR 行指针
 
 **函数签名：**
 
@@ -434,7 +368,7 @@ rowptr = ops_gnn.ind2ptr(row, 8)
 
 ---
 
-### 2.7 ptr2ind — CSR 行指针转行索引
+### 2.6 ptr2ind — CSR 行指针转行索引
 
 **函数签名：**
 
@@ -479,7 +413,7 @@ row = ops_gnn.ptr2ind(rowptr, 6)
 
 ---
 
-### 2.8 random_walk — NPU 随机游走
+### 2.7 random_walk — NPU 随机游走
 
 **函数签名：**
 
@@ -561,7 +495,7 @@ assert edges.shape == (2, 8)
 
 ---
 
-### 2.9 gather_csr - CSR 分段展开
+### 2.8 gather_csr - CSR 分段展开
 
 **函数签名：**
 
@@ -661,7 +595,7 @@ python test/gather_csr/benchmark_gather_csr.py --warmup 20 --iterations 101
 
 ---
 
-### 2.10 scatter — Scatter 系列归约
+### 2.9 scatter — Scatter 系列归约
 
 `scatter` 系列接口与 `torch_scatter` 2.1.2 的前向语义保持一致：
 
@@ -727,7 +661,6 @@ values, arg = ops_gnn.scatter_max(src, index)
 pytest test/ -v
 
 # 运行单个算子测试
-pytest test/test_example.py -v
 pytest test/gather_csr/test_gather_csr.py -v
 pytest test/segment_max_csr/test_segment_max_csr.py -v
 pytest test/graclus_cluster/test_graclus_cluster.py -v

@@ -9,7 +9,7 @@
  */
 
 #include "ind2ptr/op_host/ind2ptr.h"
-#include "ind2ptr/op_kernel/arch35/ind2ptr_kernel.h"
+#include "ind2ptr/op_kernel/arch35/ind2ptr.h"
 
 #include "torch_npu/csrc/core/npu/NPUGuard.h"
 #include "torch_npu/csrc/core/npu/NPUStream.h"
@@ -33,6 +33,6 @@ torch::Tensor ind2ptr(torch::Tensor ind, int64_t M)
     }
 
     auto stream = c10_npu::getCurrentNPUStream(ind.device().index());
-    LaunchInd2PtrKernel(ind.data_ptr<int64_t>(), out.data_ptr<int64_t>(), M, ind.numel(), stream);
+    Ind2Ptr(ind.data_ptr<int64_t>(), out.data_ptr<int64_t>(), M, ind.numel(), stream);
     return out;
 }

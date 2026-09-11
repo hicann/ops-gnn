@@ -8,18 +8,9 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "add_sample.h"
-#include "add_sample/op_kernel/arch35/add_sample_kernel.h"
+#pragma once
+#include <acl/acl.h>
+#include "segment_max_csr_tiling.h"
 
-torch::Tensor add_sample(torch::Tensor src1, torch::Tensor src2)
-{
-    uint32_t valueNum = src1.numel();
-    torch::Tensor dst = torch::empty_like(src1.cpu()).to(src1.device());
-    aclrtStream stream = nullptr;
-
-    aclrtCreateStream(&stream);
-    LaunchAddSampleKernel(src1.data_ptr<uint8_t>(), src2.data_ptr<uint8_t>(), dst.data_ptr<uint8_t>(), valueNum, stream);
-    aclrtSynchronizeStream(stream);
-    aclrtDestroyStream(stream);
-    return dst;
-}
+template <typename T>
+void SegmentMaxCsr(T* src, int32_t* indptr, T* optional_out, T* out, const SegmentMaxCsrTilingData& tiling, aclrtStream stream);

@@ -8,9 +8,11 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 #pragma once
-#include <acl/acl.h>
-#include <cstdint>
 
-void LaunchGraclusClusterKernel(int64_t* rowptr, int64_t* col, float* weight, int64_t* node_perm,
-                                int64_t* cluster, uint32_t numNodes, uint32_t hasWeight,
-                                uint32_t weightMode, aclrtStream stream);
+#include <acl/acl.h>
+
+#include "scatter_tiling.h"
+
+void Scatter(void* src, int64_t* index, void* out, int32_t* count,
+                         void* argOut, ScatterDType dtype,
+                         const ScatterTilingData& tiling, aclrtStream stream);

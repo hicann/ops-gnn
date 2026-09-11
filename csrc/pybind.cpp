@@ -10,7 +10,6 @@
 
 #include <torch/extension.h>
 #include <pybind11/pybind11.h>
-#include "add_sample/op_host/add_sample.h"
 #include "gather_coo/op_host/gather_coo.h"
 #include "gather_csr/op_host/gather_csr.h"
 #include "random_walk/op_host/random_walk.h"
@@ -30,7 +29,6 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
           py::arg("p") = 1.0, py::arg("q") = 1.0, py::arg("return_edge_indices") = false,
           py::arg("neighbors_sorted") = true,
           "Random walk on a CSR graph (NPU)");
-    m.def("add_sample", &add_sample, py::arg("src1"), py::arg("src2"), "两个tensor逐元素相加(NPU)");
     m.def("gather_csr", &gather_csr, py::arg("src"), py::arg("indptr"),
           py::arg("out") = py::none(), "Gather CSR (NPU)");
     m.def("segment_max_csr", &segment_max_csr, py::arg("src"), py::arg("indptr"),

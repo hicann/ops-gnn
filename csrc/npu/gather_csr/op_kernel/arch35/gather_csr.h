@@ -9,8 +9,10 @@
  */
 
 #pragma once
-#include <acl/acl.h>
-#include <cstdint>
 
-void LaunchInd2PtrKernel(const int64_t* ind, int64_t* out, int64_t M, int64_t numel,
-                         aclrtStream stream);
+#include <acl/acl.h>
+
+#include "gather_csr_tiling.h"
+
+void GatherCsr(void* src, int64_t* indptr, void* out,
+                           const GatherCsrTilingData& tiling, aclrtStream stream);

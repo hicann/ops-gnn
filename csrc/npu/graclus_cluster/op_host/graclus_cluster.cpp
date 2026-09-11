@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 #include "graclus_cluster.h"
-#include "graclus_cluster/op_kernel/arch35/graclus_cluster_kernel.h"
+#include "graclus_cluster/op_kernel/arch35/graclus_cluster.h"
 #include <acl/acl_base.h>
 #include <limits>
 #include "torch_npu/csrc/core/npu/NPUStream.h"
@@ -46,7 +46,7 @@ torch::Tensor graclus_cluster_npu(torch::Tensor rowptr, torch::Tensor col, torch
 
     torch::Tensor cluster = torch::empty({num_nodes}, rowptr.options());
     aclrtStream stream = c10_npu::getCurrentNPUStream(rowptr.device().index()).stream();
-    LaunchGraclusClusterKernel(
+    GraclusCluster(
         rowptr.data_ptr<int64_t>(),
         col.data_ptr<int64_t>(),
         has_weight ? weight.data_ptr<float>() : nullptr,

@@ -15,7 +15,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "scatter/op_kernel/arch35/scatter_kernel.h"
+#include "scatter/op_kernel/arch35/scatter.h"
 #include "scatter/op_kernel/arch35/scatter_tiling.h"
 #include "tiling/platform/platform_ascendc.h"
 #include "torch_npu/csrc/core/npu/NPUFormat.h"
@@ -261,7 +261,7 @@ std::tuple<torch::Tensor, torch::Tensor> scatter_forward(
     const ScatterTilingData tiling = BuildTiling(
         plan, src, index, out, reduce, hasOut, hotTarget);
     aclrtStream stream = c10_npu::getCurrentNPUStream(src.get_device()).stream(true);
-    LaunchScatterKernel(
+    Scatter(
         src.data_ptr(), index.data_ptr<int64_t>(), out.data_ptr(),
         count.numel() > 0 ? static_cast<int32_t*>(count.data_ptr()) : nullptr,
         argOut.numel() > 0 ? argOut.data_ptr() : nullptr,

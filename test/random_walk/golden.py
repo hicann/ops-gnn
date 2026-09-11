@@ -64,7 +64,7 @@ def philox4x32_10(
 
 @dataclass
 class PhiloxStream:
-    """Per-walk random stream matching random_walk_kernel.cpp."""
+    """Per-walk random stream matching random_walk.cpp."""
 
     seed: int
     offset: int

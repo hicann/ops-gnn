@@ -33,5 +33,5 @@ struct RadiusLaunchArgs {
 };
 
 template <typename T, int DType = 0>
-void LaunchRadiusKernel(T* x, T* y, const RadiusLaunchArgs<T>& args,
+void Radius(T* x, T* y, const RadiusLaunchArgs<T>& args,
                         aclrtStream stream);

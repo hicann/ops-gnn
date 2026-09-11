@@ -10,5 +10,7 @@
 
 #pragma once
 #include <acl/acl.h>
+#include <cstdint>
 
-void LaunchAddSampleKernel(uint8_t* src1, uint8_t* src2, uint8_t* dst, uint32_t valueNum, aclrtStream stream);
+void Ind2Ptr(const int64_t* ind, int64_t* out, int64_t M, int64_t numel,
+                         aclrtStream stream);

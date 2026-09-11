@@ -89,7 +89,6 @@ pip install pytest pytest-cov
 
 # 快速开始：先跑单个/少量组别用例
 pytest test/test_import.py -v            # 导入用例
-pytest test/test_example.py -v           # 单个 NPU 算子用例（add_sample）
 
 # 运行所有功能测试
 pytest test/ -v
@@ -118,12 +117,6 @@ NPU_DEVICE_ID=<device_id> python3 test/<op>/benchmark_<op>.py
 ```python
 import torch
 import ops_gnn
-
-# NPU tensor 加法运算
-src1 = torch.tensor([1, 2, 3, 4, 5], dtype=torch.uint8, device='npu')
-src2 = torch.tensor([5, 4, 3, 2, 1], dtype=torch.uint8, device='npu')
-result = ops_gnn.add_sample(src1, src2)
-print(result)  # 输出: tensor([6, 6, 6, 6, 6], device='npu:0', dtype=torch.uint8)
 
 # CSR 格式的分段最大值运算
 src = torch.tensor([[1, 2], [3, 4], [5, 6], [7, 8]], dtype=torch.float32, device='npu')

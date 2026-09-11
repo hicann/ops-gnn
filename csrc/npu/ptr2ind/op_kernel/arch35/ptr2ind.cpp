@@ -11,7 +11,7 @@
 #include "acl/acl.h"
 #include "kernel_operator.h"
 #include "common/aiv_launch_utils.h"
-#include "ptr2ind/op_kernel/arch35/ptr2ind_kernel.h"
+#include "ptr2ind/op_kernel/arch35/ptr2ind.h"
 
 // SIMT threads launched per AIV via VF_CALL Dim3.
 constexpr uint32_t PTR2IND_SIMT_THREADS = 256;
@@ -43,7 +43,7 @@ __attribute__((aiv)) __global__ __aicore__ void Ptr2IndKernel(__gm__ int64_t* pt
                                               numRows);
 }
 
-void LaunchPtr2IndKernel(const int64_t* ptr, int64_t* out, int64_t numRows, aclrtStream stream)
+void Ptr2Ind(const int64_t* ptr, int64_t* out, int64_t numRows, aclrtStream stream)
 {
     // AscendC SIMT: each AIV runs PTR2IND_SIMT_THREADS threads; cover row in [0, numRows).
     const uint32_t needCoreNum =

@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "radius_kernel.h"
+#include "radius.h"
 #include <cmath>
 #include "kernel_operator.h"
 #include "tiling/platform/platform_ascendc.h"
@@ -367,7 +367,7 @@ __attribute__((aiv)) __global__ __aicore__ void RadiusKernel(
 }
 
 template <typename T, int DType>
-void LaunchRadiusKernel(T* x, T* y, const RadiusLaunchArgs<T>& args,
+void Radius(T* x, T* y, const RadiusLaunchArgs<T>& args,
                         aclrtStream stream)
 {
     auto ascendcPlatform = platform_ascendc::PlatformAscendCManager::GetInstance();
@@ -382,11 +382,11 @@ void LaunchRadiusKernel(T* x, T* y, const RadiusLaunchArgs<T>& args,
         args.tiling_gm);
 }
 
-template void LaunchRadiusKernel<float, 0>(float*, float*,
+template void Radius<float, 0>(float*, float*,
                                            const RadiusLaunchArgs<float>&, aclrtStream);
 
-template void LaunchRadiusKernel<uint16_t, 1>(uint16_t*, uint16_t*,
+template void Radius<uint16_t, 1>(uint16_t*, uint16_t*,
                                               const RadiusLaunchArgs<uint16_t>&, aclrtStream);
 
-template void LaunchRadiusKernel<uint16_t, 2>(uint16_t*, uint16_t*,
+template void Radius<uint16_t, 2>(uint16_t*, uint16_t*,
                                               const RadiusLaunchArgs<uint16_t>&, aclrtStream);

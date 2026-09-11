@@ -6,11 +6,11 @@
  * Please refer to the License for details.
  */
 
-#include "gather_coo_kernel_impl.h"
 #include "gather_coo_kernel.h"
+#include "gather_coo.h"
 
 template <typename T>
-void LaunchGatherCooKernel(
+void GatherCoo(
     T* src,
     int64_t* index,
     T* out,
@@ -24,9 +24,9 @@ void LaunchGatherCooKernel(
         tiling);
 }
 
-template void LaunchGatherCooKernel<uint8_t>(
+template void GatherCoo<uint8_t>(
     uint8_t*, int64_t*, uint8_t*, const GatherCooTilingData&, aclrtStream);
-template void LaunchGatherCooKernel<uint16_t>(
+template void GatherCoo<uint16_t>(
     uint16_t*, int64_t*, uint16_t*, const GatherCooTilingData&, aclrtStream);
-template void LaunchGatherCooKernel<uint32_t>(
+template void GatherCoo<uint32_t>(
     uint32_t*, int64_t*, uint32_t*, const GatherCooTilingData&, aclrtStream);

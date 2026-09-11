@@ -15,7 +15,6 @@ try:
 except ImportError:
     torch_npu = None
 
-from .add_sample import add_sample
 from .gather_csr import gather_csr
 from .graclus_cluster import graclus_cluster
 from .gather_coo import gather_coo
@@ -39,7 +38,6 @@ from .typing import Tensor, OptTensor
 __version__ = '0.1.0'
 
 __all__ = [
-    'add_sample',
     'gather_csr',
     'graclus_cluster',
     'gather_coo',

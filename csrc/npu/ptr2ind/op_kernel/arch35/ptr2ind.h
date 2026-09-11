@@ -12,4 +12,4 @@
 #include <acl/acl.h>
 #include <cstdint>
 
-void LaunchPtr2IndKernel(const int64_t* ptr, int64_t* out, int64_t numRows, aclrtStream stream);
+void Ptr2Ind(const int64_t* ptr, int64_t* out, int64_t numRows, aclrtStream stream);

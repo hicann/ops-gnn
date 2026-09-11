@@ -16,7 +16,7 @@
 #include <utility>
 #include <vector>
 
-#include "gather_csr/op_kernel/arch35/gather_csr_kernel.h"
+#include "gather_csr/op_kernel/arch35/gather_csr.h"
 #include "gather_csr/op_kernel/arch35/gather_csr_tiling.h"
 #include "tiling/platform/platform_ascendc.h"
 #include "torch_npu/csrc/core/npu/NPUStream.h"
@@ -316,7 +316,7 @@ torch::Tensor RunKernel(const torch::Tensor& src, const ValidatedArguments& args
     if (kernelOut.numel() > 0) {
         const auto tiling = BuildTiling(shapeInfo);
         aclrtStream stream = c10_npu::getCurrentNPUStream(src.get_device()).stream();
-        LaunchGatherCsrKernel(inputs.src.data_ptr(), inputs.indptr.data_ptr<int64_t>(),
+        GatherCsr(inputs.src.data_ptr(), inputs.indptr.data_ptr<int64_t>(),
                               kernelOut.data_ptr(), tiling, stream);
     }
     if (args.hasOut && !args.out.is_contiguous()) {

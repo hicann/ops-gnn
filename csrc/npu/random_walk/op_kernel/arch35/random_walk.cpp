@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "random_walk_kernel.h"
+#include "random_walk.h"
 
 #include "kernel_operator.h"
 #include "simt_api/device_functions.h"
@@ -352,7 +352,7 @@ __attribute__((aiv)) __global__ __aicore__ void ResolveWalkEdgesKernel(
 
 }  // namespace
 
-void LaunchRandomWalkKernel(const int64_t* rowptr, const int64_t* col, const int64_t* start,
+void RandomWalk(const int64_t* rowptr, const int64_t* col, const int64_t* start,
                             int64_t* nodeOut, int64_t* edgeOut, const RandomWalkLaunchParams& params,
                             aclrtStream stream)
 {

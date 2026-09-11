@@ -26,6 +26,6 @@ struct RandomWalkLaunchParams {
     bool neighborsSorted;
 };
 
-void LaunchRandomWalkKernel(const int64_t* rowptr, const int64_t* col, const int64_t* start,
+void RandomWalk(const int64_t* rowptr, const int64_t* col, const int64_t* start,
                             int64_t* nodeOut, int64_t* edgeOut, const RandomWalkLaunchParams& params,
                             aclrtStream stream);

@@ -10,7 +10,7 @@
 #include "acl/acl.h"
 #include "kernel_operator.h"
 #include "tiling/platform/platform_ascendc.h"
-#include "graclus_cluster_kernel.h"
+#include "graclus_cluster.h"
 
 struct NeighborSearchContext {
     int64_t start;
@@ -144,7 +144,7 @@ __attribute__((aiv)) __global__ __aicore__ void GraclusClusterKernel(
     }
 }
 
-void LaunchGraclusClusterKernel(int64_t* rowptr, int64_t* col, float* weight, int64_t* node_perm,
+void GraclusCluster(int64_t* rowptr, int64_t* col, float* weight, int64_t* node_perm,
                                 int64_t* cluster, uint32_t numNodes, uint32_t hasWeight,
                                 uint32_t weightMode, aclrtStream stream)
 {

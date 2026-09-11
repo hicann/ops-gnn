@@ -7,13 +7,10 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
+#pragma once
+#include <acl/acl.h>
+#include <cstdint>
 
-#include "gather_csr_kernel_impl.h"
-#include "gather_csr_kernel.h"
-
-void LaunchGatherCsrKernel(void* src, int64_t* indptr, void* out,
-                           const GatherCsrTilingData& tiling, aclrtStream stream)
-{
-    gather_csr_kernel<<<tiling.activeCoreNum, nullptr, stream>>>(
-        static_cast<uint8_t*>(src), indptr, static_cast<uint8_t*>(out), tiling);
-}
+void GraclusCluster(int64_t* rowptr, int64_t* col, float* weight, int64_t* node_perm,
+                                int64_t* cluster, uint32_t numNodes, uint32_t hasWeight,
+                                uint32_t weightMode, aclrtStream stream);

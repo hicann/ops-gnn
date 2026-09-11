@@ -26,73 +26,7 @@ Optional Tensor type for parameters that may have default values. `None` is repr
 
 ## 2. Core Operator APIs
 
-### 2.1 add_sample — Element-wise Addition
-
-**Function Signature:**
-
-```python
-def add_sample(
-    src1: Tensor,
-    src2: Tensor,
-) -> Tensor:
-```
-
-**Parameters:**
-
-| Parameter | Type | I/O | Description |
-|-----------|------|-----|-------------|
-| src1 | Tensor | Input | First input Tensor, must be on NPU device |
-| src2 | Tensor | Input | Second input Tensor, must be on NPU device, same shape as `src1` |
-
-**Return Value:**
-
-Returns a new Tensor, the element-wise sum of `src1` and `src2`, located on NPU device, with the same shape and dtype as inputs.
-
-**Description:**
-
-Performs element-wise addition (`src1[i] + src2[i]`) on two Tensors, using AscendC SIMT mode for parallel computation on NPU. Supports uint8 type.
-
-**Implementation Architecture:**
-
-- **Kernel Mode**: SIMT (`__simt_vf__` + `VF_CALL`), single-file implementation
-- **Data Movement**: Direct GM read/write, no Tiling
-- **Use Case**: Element-wise operations, simple element-wise operators
-
-**Notes:**
-
-- Both input Tensors must have the same shape
-- Inputs must be on NPU device (`device='npu'`)
-- Currently only supports uint8 (`torch.uint8`) type
-- Computation runs directly on NPU, no CPU fallback
-
-**Usage Example:**
-
-```python
-import torch
-import ops_gnn
-
-# Set NPU device
-device_id = int(os.environ.get("NPU_DEVICE_ID", 0))
-torch.npu.set_device(device_id)
-torch.manual_seed(42)
-
-# Create input Tensors (NPU device)
-src1 = torch.randint(0, 128, (1024, 1024), dtype=torch.uint8, device='npu')
-src2 = torch.randint(0, 128, (1024, 1024), dtype=torch.uint8, device='npu')
-
-# Call operator
-result = ops_gnn.add_sample(src1, src2)
-
-# Verify results
-expected = src1 + src2
-assert result.device.type == 'npu'
-assert result.shape == (1024, 1024)
-assert torch.equal(result, expected)
-```
-
----
-
-### 2.2 segment_max_csr — CSR Segmented Max
+### 2.1 segment_max_csr — CSR Segmented Max
 
 **Function Signature:**
 
@@ -250,7 +184,7 @@ result = ops_gnn.segment_max_csr(src, indptr)
 
 ---
 
-### 2.3 radius / radius_graph — Radius Neighbor Search
+### 2.2 radius / radius_graph — Radius Neighbor Search
 
 NPU implementation interface-compatible with `torch_cluster.radius` /
 `radius_graph` (>= 1.6.0), Ascend 950PR. For each query point in `y`, finds all
@@ -306,7 +240,7 @@ edge_g = ops_gnn.radius_graph(x, 0.8)     # build K-NN graph (loop=False by defa
 - L1: float16 / bfloat16 / float32 (NPU); float64 via CPU fallback (bit-wise, not performance-tested)
 - Empty input returns `[2, 0]` LongTensor without entering the kernel
 
-### 2.4 graclus_cluster — Greedy Graph Clustering
+### 2.3 graclus_cluster — Greedy Graph Clustering
 
 **Function Signature:**
 
@@ -343,7 +277,7 @@ Implements the greedy graph clustering semantics of `torch_cluster.graclus_clust
 - The algorithm contains randomness; set `torch.manual_seed` before calling the operator when reproducible output is required
 - Self-loops are removed before clustering
 
-### 2.5 gather_coo — COO Row Expansion
+### 2.4 gather_coo — COO Row Expansion
 
 **Function signature:**
 
@@ -390,7 +324,7 @@ assert returned.data_ptr() == provided.data_ptr()
 
 ---
 
-### 2.6 ind2ptr — Sorted Row Indices to CSR Row Pointer
+### 2.5 ind2ptr — Sorted Row Indices to CSR Row Pointer
 
 **Function signature:**
 
@@ -435,7 +369,7 @@ rowptr = ops_gnn.ind2ptr(row, 8)
 
 ---
 
-### 2.7 ptr2ind — CSR Row Pointer to Row Indices
+### 2.6 ptr2ind — CSR Row Pointer to Row Indices
 
 **Function signature:**
 
@@ -480,7 +414,7 @@ row = ops_gnn.ptr2ind(rowptr, 6)
 
 ---
 
-### 2.8 random_walk — NPU Random Walk
+### 2.7 random_walk — NPU Random Walk
 
 **Function Signature:**
 
@@ -563,7 +497,7 @@ assert edges.shape == (2, 8)
 
 ---
 
-### 2.9 gather_csr - CSR Segment Expansion
+### 2.8 gather_csr - CSR Segment Expansion
 
 **Signature:**
 
@@ -668,7 +602,7 @@ python test/gather_csr/benchmark_gather_csr.py --warmup 20 --iterations 101
 
 ---
 
-### 2.10 scatter — Scatter Reductions
+### 2.9 scatter — Scatter Reductions
 
 The Scatter family follows the forward semantics of `torch_scatter` 2.1.2:
 
@@ -736,7 +670,6 @@ values, arg = ops_gnn.scatter_max(src, index)
 pytest test/ -v
 
 # Run single operator test
-pytest test/test_example.py -v
 pytest test/gather_csr/test_gather_csr.py -v
 pytest test/segment_max_csr/test_segment_max_csr.py -v
 pytest test/graclus_cluster/test_graclus_cluster.py -v

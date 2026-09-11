@@ -9,7 +9,7 @@
  */
 
 #include "segment_max_csr.h"
-#include "segment_max_csr/op_kernel/arch35/segment_max_csr_kernel.h"
+#include "segment_max_csr/op_kernel/arch35/segment_max_csr.h"
 #include "tiling/platform/platform_ascendc.h"
 #include "segment_max_csr/op_kernel/arch35/segment_max_csr_tiling.h"
 #include <acl/acl_base.h>
@@ -119,28 +119,28 @@ void LaunchKernel(const torch::Tensor& src, const torch::Tensor& indptr,
 {
     auto scalar_type = src.scalar_type();
     if (scalar_type == at::ScalarType::Float) {
-        LaunchSegmentMaxCsrKernel(
+        SegmentMaxCsr(
             src.data_ptr<float>(),
             indptr.data_ptr<int32_t>(),
             hasOptionalOut ? optional_out.data_ptr<float>() : nullptr,
             out.data_ptr<float>(),
             tiling, stream);
     } else if (scalar_type == at::ScalarType::Half) {
-        LaunchSegmentMaxCsrKernel(
+        SegmentMaxCsr(
             reinterpret_cast<uint16_t*>(src.data_ptr<c10::Half>()),
             indptr.data_ptr<int32_t>(),
             hasOptionalOut ? reinterpret_cast<uint16_t*>(optional_out.data_ptr<c10::Half>()) : nullptr,
             reinterpret_cast<uint16_t*>(out.data_ptr<c10::Half>()),
             tiling, stream);
     } else if (scalar_type == at::ScalarType::Int) {
-        LaunchSegmentMaxCsrKernel(
+        SegmentMaxCsr(
             src.data_ptr<int32_t>(),
             indptr.data_ptr<int32_t>(),
             hasOptionalOut ? optional_out.data_ptr<int32_t>() : nullptr,
             out.data_ptr<int32_t>(),
             tiling, stream);
     } else if (scalar_type == at::ScalarType::Short) {
-        LaunchSegmentMaxCsrKernel(
+        SegmentMaxCsr(
             src.data_ptr<int16_t>(),
             indptr.data_ptr<int32_t>(),
             hasOptionalOut ? optional_out.data_ptr<int16_t>() : nullptr,

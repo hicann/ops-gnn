@@ -15,7 +15,7 @@
 #include <cstdlib>
 #include <cstdint>
 #include <vector>
-#include "radius/op_kernel/arch35/radius_kernel.h"
+#include "radius/op_kernel/arch35/radius.h"
 #include "radius/op_kernel/arch35/radius_tiling.h"
 #include "tiling/platform/platform_ascendc.h"
 
@@ -554,7 +554,7 @@ struct LaunchBundle {
 
 // Build the scalar tiling struct and upload it to the device. Tiling travels
 // through GM as raw bytes; structs are never staged by value through the SIMT
-// launch path (see radius_kernel.cpp).
+// launch path (see radius.cpp).
 torch::Tensor BuildTilingDevice(const torch::Tensor& x, const BatchContext& ctx,
                                 const GridHostData& grid, double r, int64_t n,
                                 int64_t m, int64_t feature_dim,
@@ -676,7 +676,7 @@ void LaunchDispatch(const torch::Tensor& x, const torch::Tensor& y,
     args.out_row1 = b.out_row1.data_ptr<int64_t>();
     args.config_ptr = grid.use_grid ? b.config_npu.data_ptr<uint8_t>() : nullptr;
     args.tiling_gm = b.tiling_npu.data_ptr<uint8_t>();
-    LaunchRadiusKernel<T, DType>(static_cast<T*>(x.data_ptr()),
+    Radius<T, DType>(static_cast<T*>(x.data_ptr()),
                                  static_cast<T*>(y.data_ptr()), args, b.stream);
 }
 

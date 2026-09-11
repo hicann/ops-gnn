@@ -17,7 +17,7 @@
 #include <torch_npu/csrc/core/npu/NPUStream.h>
 #include <tiling/platform/platform_ascendc.h>
 
-#include "gather_coo/op_kernel/arch35/gather_coo_kernel.h"
+#include "gather_coo/op_kernel/arch35/gather_coo.h"
 #include "gather_coo/op_kernel/arch35/gather_coo_tiling.h"
 
 namespace {
@@ -212,7 +212,7 @@ void LaunchOnCurrentStream(
     // kernel is then appended to that same stream and remains asynchronous;
     // this does not call a device synchronization API.
     aclrtStream stream = currentStream.stream();
-    LaunchGatherCooKernel<T>(
+    GatherCoo<T>(
         reinterpret_cast<T*>(src.data_ptr()),
         index.data_ptr<int64_t>(),
         reinterpret_cast<T*>(output.data_ptr()),
