@@ -593,11 +593,11 @@ cmake -S . -B build/cmake_release \
 cmake --build build/cmake_release -j4
 export PYTHONPATH=$PWD/python
 export NPU_DEVICE_ID=<device_id>
-pytest -q test/gather_csr/test_gather_csr.py
-python test/gather_csr/golden.py
-python test/gather_csr/benchmark_gather_csr.py --ascendoptest \
+pytest -q test/gather_csr/arch35/test_gather_csr.py
+python test/gather_csr/arch35/golden.py
+python test/gather_csr/arch35/benchmark_gather_csr.py --ascendoptest \
   --ascendoptest-root /path/to/AscendOpTest
-python test/gather_csr/benchmark_gather_csr.py --warmup 20 --iterations 101
+python test/gather_csr/arch35/benchmark_gather_csr.py --warmup 20 --iterations 101
 ```
 
 ---
@@ -661,31 +661,76 @@ values, arg = ops_gnn.scatter_max(src, index)
 # arg:    tensor([2, 3], device='npu:0')
 ```
 
+### 2.10 spmm_max_csr — CSR Sparse Matrix-Vector Max Aggregation
+
+```python
+ops_gnn.spmm_max_csr(indptr, indices, x, out=None) -> Tensor
+```
+
+Forward-only `copy_lhs + max` over CSR **rows representing destination nodes**.
+`indices[e]` is the source node of edge `e`. A conventional source-row CSR
+aggregates in the opposite direction and must be transposed before use.
+
+- `x`: `[K, N]`, float16, NPU; `N > 0`.
+- `indptr`: `[M+1]`; `indices`: `[nnz]`, matching int32 or int64, same NPU as `x`.
+- CSR starts at zero, ends at nnz, is non-decreasing, and source indices lie in `[0,K)`.
+- Returns `[M,N]` float16. Empty rows are zero; infinities are preserved and any
+  contributing NaN propagates to that output feature.
+- Noncontiguous inputs are made contiguous. `out`, if supplied, must be contiguous,
+  match shape/dtype/device, and share no storage with any input.
+- Autograd is unsupported; `x` and `out` requiring gradients are rejected.
+- No CPU fallback, other reductions, batched features or other feature dtypes.
+
+```python
+import torch
+import torch_npu
+from ops_gnn import spmm_max_csr
+
+# Destination 0 receives sources 0 and 2; destination 1 is empty.
+ptr = torch.tensor([0, 2, 2], dtype=torch.int64, device='npu')
+idx = torch.tensor([0, 2], dtype=torch.int64, device='npu')
+x = torch.tensor([[-2, 3], [7, 8], [-1, 2]], dtype=torch.float16, device='npu')
+y = spmm_max_csr(ptr, idx, x)  # [[-1, 3], [0, 0]]
+```
+
+The kernel runs on the current PyTorch NPU stream. Scalar CSR validation and NaN
+presence checks synchronize; the implementation does not download CSR arrays.
+NaN-containing input uses an additional device scalar scan to guarantee propagation,
+which may be slower. End-to-end benchmarks include these costs and int64 conversion.
+
+With device UB capacity `U` bytes, the maximum feature dimension is
+`16 * floor((U - 2048) / 128)`: two accumulation and two feature buffers must fit.
+Dimensions and address byte spans must fit uint32; a larger input raises an error.
+The actual limit is included in the exception. Features are not tiled.
+
+Source routing uses `op_kernel/arch22`; compilation still uses `NPU_ARCH` for the
+actual device. Hardware support requires successful validation on that target.
+
 ## 3. Testing Guide
 
 ### 3.1 Running Tests
 
 ```sh
-# Run all tests
+# Run all tests for the local chip model (950→arch35, A2/A3→arch22; `pytest test/` only collects the matching directory automatically)
 pytest test/ -v
 
-# Run single operator test
-pytest test/gather_csr/test_gather_csr.py -v
-pytest test/segment_max_csr/test_segment_max_csr.py -v
-pytest test/graclus_cluster/test_graclus_cluster.py -v
-python -m pytest test/gather_coo/test_gather_coo.py -v
-pytest test/random_walk/test_random_walk.py -v
-pytest test/radius/test_radius.py -v
-pytest test/sparse/test_sparse.py -v
+# Run single operator test (arch35 on 950, arch22 on A2/A3)
+pytest test/gather_csr/arch35/test_gather_csr.py -v
+pytest test/segment_max_csr/arch35/test_segment_max_csr.py -v
+pytest test/graclus_cluster/arch35/test_graclus_cluster.py -v
+python -m pytest test/gather_coo/arch35/test_gather_coo.py -v
+pytest test/random_walk/arch35/test_random_walk.py -v
+pytest test/radius/arch35/test_radius.py -v
+pytest test/sparse/arch35/test_sparse.py -v
 
 # Run the random_walk performance benchmark
-NPU_DEVICE_ID=<device_id> python test/random_walk/benchmark_random_walk.py
+NPU_DEVICE_ID=<device_id> python test/random_walk/arch35/benchmark_random_walk.py
 
 # Run the radius official-baseline performance benchmark
-python test/radius/benchmark_radius.py
+python test/radius/arch35/benchmark_radius.py
 
 # Run single test case
-pytest test/segment_max_csr/test_segment_max_csr.py::test_segment_max_csr_basic -v
+pytest test/segment_max_csr/arch35/test_segment_max_csr.py::test_segment_max_csr_basic -v
 ```
 
 ### 3.2 Test Writing Template

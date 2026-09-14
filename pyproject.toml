@@ -39,6 +39,9 @@ test = [
 ]
 
 [tool.pytest.ini_options]
+testpaths = ["test"]
+python_files = ["test_*.py"]
+addopts = "--capture=no"
 markers = [
     "npu: requires an Ascend NPU and the compiled ops_gnn extension",
 ]

@@ -28,7 +28,8 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
 # 默认值
 BUILD_TYPE="Release"
-NPU_ARCH="dav-3510"
+# 命令行 --npu-arch 优先；否则沿用环境变量，最后自动检测设备。
+NPU_ARCH="${NPU_ARCH:-${TARGET_NPU_ARCH:-}}"
 WITH_PYTHON="ON"
 INSTALL_PREFIX="${PROJECT_ROOT}/output"
 
@@ -45,11 +46,12 @@ ${BLUE}ops-gnn 构建脚本${NC}
     python           构建 Python 包 (默认)
     cpp              构建 C++ 二进制文件
     all              同时构建 Python 包和 C++ 二进制
-    test             运行代码仓整体测试 (pytest test/，含 sparse 等算子用例)
+    test             运行当前 NPU 架构支持的 pytest 用例
 
 选项:
     -t, --type TYPE      构建类型 (Debug/Release) [默认: Release]
-    --npu-arch ARCH      NPU 架构 (dav-3510/dav-610等) [默认: dav-3510]
+    --npu-arch ARCH      NPU 架构 (dav-3510/dav-2201；dav-2201 覆盖 A2/A3)
+                         [默认: 环境变量 NPU_ARCH/TARGET_NPU_ARCH，未设置时按芯片型号自动检测]
     --no-python          禁用 Python 绑定 (仅 C++ 构建)
     -c, --clean          清理构建缓存 (删除 build 和 output 目录)
     -h, --help           显示帮助信息
@@ -132,6 +134,53 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+detect_npu_arch() {
+    local npu_smi_bin="${NPU_SMI_BIN:-npu-smi}"
+    local device_info
+
+    if ! command -v "$npu_smi_bin" >/dev/null 2>&1; then
+        log_warn "由于检测不到 NPU 设备，当前默认以 Ascend 950 设备进行编译（dav-3510 / arch35）；原因：未找到 npu-smi"
+        log_warn "如需指定架构，可用 --npu-arch 或 TARGET_NPU_ARCH 显式指定"
+        NPU_ARCH="dav-3510"
+        return 0
+    fi
+    if ! device_info="$("$npu_smi_bin" info -m 2>&1)"; then
+        log_warn "由于检测不到 NPU 设备，当前默认以 Ascend 950 设备进行编译（dav-3510 / arch35）；原因：npu-smi info 执行失败"
+        log_warn "如需指定架构，可用 --npu-arch 或 TARGET_NPU_ARCH 显式指定"
+        NPU_ARCH="dav-3510"
+        return 0
+    fi
+
+    # 按芯片型号识别：A3(910C)/A2(910B) -> dav-2201(arch22)；950 -> dav-3510(arch35)
+    if grep -qiE "ascend[[:space:]]*910_93|ascend[[:space:]]*910c" <<< "$device_info"; then
+        log_info "检测到芯片型号: A3 (910C)，编译 arch22 算子"
+        NPU_ARCH="dav-2201"
+    elif grep -qiE "ascend[[:space:]]*910b" <<< "$device_info"; then
+        log_info "检测到芯片型号: A2 (910B)，编译 arch22 算子"
+        NPU_ARCH="dav-2201"
+    elif grep -qiE "ascend[[:space:]]*950" <<< "$device_info"; then
+        log_info "检测到芯片型号: 950，编译 arch35 算子"
+        NPU_ARCH="dav-3510"
+    else
+        log_error "不支持的芯片型号，仅支持 950 / A2(910B) / A3(910C)；可用 --npu-arch 或 TARGET_NPU_ARCH 显式指定"
+    fi
+}
+
+if [ -z "$NPU_ARCH" ]; then
+    detect_npu_arch
+fi
+
+case "$NPU_ARCH" in
+    dav-3510|dav-2201)
+        ;;
+    *)
+        log_error "不支持的 NPU 架构: $NPU_ARCH（支持 dav-3510、dav-2201）"
+        ;;
+esac
+
+# Python 构建由 setup.py 启动新的 CMake 进程，因此必须导出该值。
+export NPU_ARCH
 
 ###############################################################################
 # 清理构建缓存
@@ -265,7 +314,7 @@ build_python() {
 # 运行代码仓整体测试
 ###############################################################################
 run_tests() {
-    log_info "开始运行代码仓整体测试 (pytest test/)..."
+    log_info "开始运行当前 NPU 架构支持的测试..."
     cd "$PROJECT_ROOT"
 
     if [ -z "${PYTHON_CMD:-}" ]; then
@@ -280,10 +329,12 @@ run_tests() {
 
     export PYTHONPATH="${PROJECT_ROOT}/python:${PYTHONPATH:-}"
 
-    # 统一入口：自动发现 test/ 下全部用例（含 test/sparse/），
-    # 不单独暴露顶层 sparse 测试接口。
-    if ! $PYTHON_CMD -m pytest test/ -v; then
-        log_error "整体测试失败"
+    # 测试按 test/<operator>/<arch>/ 组织；根 conftest.py 会根据
+    # NPU_ARCH 忽略不匹配的架构子目录。
+    log_info "测试目录: test（架构: ${NPU_ARCH}）"
+
+    if ! $PYTHON_CMD -m pytest test -v; then
+        log_error "整体测试失败: test（架构: ${NPU_ARCH}）"
     fi
 
     log_info "整体测试完成!"
@@ -295,7 +346,7 @@ run_tests() {
 build_cpp() {
     log_info "开始构建 C++ 二进制..."
 
-    BUILD_DIR="$PROJECT_ROOT/build/cpp"
+    BUILD_DIR="$PROJECT_ROOT/build/cpp_${NPU_ARCH}"
     mkdir -p "$BUILD_DIR"
     cd "$BUILD_DIR"
 

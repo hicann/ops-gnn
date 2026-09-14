@@ -18,7 +18,6 @@
 #include "scatter/op_kernel/arch35/scatter.h"
 #include "scatter/op_kernel/arch35/scatter_tiling.h"
 #include "tiling/platform/platform_ascendc.h"
-#include "torch_npu/csrc/core/npu/NPUFormat.h"
 #include "torch_npu/csrc/core/npu/NPUStream.h"
 
 namespace {
@@ -40,7 +39,7 @@ torch::Tensor EmptyNpuWorkspace(const at::IntArrayRef& sizes,
                              .dtype(dtype)
                              .device(device)
                              .layout(torch::kStrided);
-    return at_npu::native::empty_with_format(sizes, options, ACL_FORMAT_ND);
+    return torch::empty(sizes, options);
 }
 
 torch::Tensor ZeroNpuWorkspace(const at::IntArrayRef& sizes,

@@ -10,6 +10,9 @@
 
 #include <torch/extension.h>
 #include <pybind11/pybind11.h>
+#ifdef OPSGNN_DAV_2201
+#include "spmm_max/op_host/spmm_max.h"
+#else
 #include "gather_coo/op_host/gather_coo.h"
 #include "gather_csr/op_host/gather_csr.h"
 #include "random_walk/op_host/random_walk.h"
@@ -19,11 +22,18 @@
 #include "ind2ptr/op_host/ind2ptr.h"
 #include "ptr2ind/op_host/ptr2ind.h"
 #include "scatter/op_host/scatter.h"
+#endif
 
 namespace py = pybind11;
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.doc() = "ops_gnn: NPU extension";
+#ifdef OPSGNN_DAV_2201
+    m.attr("npu_arch") = "dav-2201";
+    m.def("spmm_max_csr", &SpmmMaxCsr, py::arg("indptr"), py::arg("indices"),
+          py::arg("x"), py::arg("out") = py::none(), "CSR SpMM max on Ascend NPU");
+#else
+    m.attr("npu_arch") = "dav-3510";
     m.def("random_walk", &random_walk_npu,
           py::arg("rowptr"), py::arg("col"), py::arg("start"), py::arg("walk_length"),
           py::arg("p") = 1.0, py::arg("q") = 1.0, py::arg("return_edge_indices") = false,
@@ -62,4 +72,5 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.def("scatter_forward", &scatter_forward, py::arg("src"), py::arg("index"),
           py::arg("dim"), py::arg("out"), py::arg("reduce"), py::arg("has_out"),
           py::arg("hot_target") = -1, "torch_scatter-compatible forward reduction(NPU)");
+#endif
 }

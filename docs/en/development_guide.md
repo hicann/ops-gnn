@@ -53,7 +53,7 @@ ops-gnn depends on the following components:
 
 `torch` and `torch_npu` must be obtained from the [Ascend Community Download Page](https://www.hiascend.com/developer/download/community) for Ascend hardware-adapted versions.
 
-The supported platform is the Ascend 950 series; other platforms are not currently supported.
+The supported platforms are Ascend 950 (arch35) and A2/A3 (910B/910C, arch22); other platforms are not supported.
 
 ```sh
 # System toolchain
@@ -125,7 +125,7 @@ ops-gnn
 ├── docs/                           # Docs (API reference: docs/*/api_reference.md)
 ├── python/                         # Python source code
 │   └── ops_gnn/                    # Python package
-├── test/                           # Test directory
+├── test/                           # Tests organized as <operator>/<arch>
 ├── scripts/                        # Build scripts
 │   └── build.sh                    # Unified build/test script (python/cpp/all/test)
 ├── cmake/                          # CMake configuration
@@ -212,7 +212,7 @@ Key CMake variables:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `NPU_ARCH` | NPU architecture | `dav-3510` (950) / `dav-2201` (910B) |
+| `NPU_ARCH` | NPU architecture | Detected by chip model: `dav-3510` (950 → arch35) / `dav-2201` (A2 (910B)/A3 (910C) → arch22); can be set to override detection |
 | `WITH_PYTHON` | Enable Python binding build | `ON` |
 | `ASCEND_HOME_PATH` | CANN installation path | Read from env |
 | `Python3_ROOT_DIR` | Python root directory | Auto-exported by build.sh |
@@ -226,15 +226,20 @@ Key CMake variables:
 ### 5.1 Running Functional Tests
 
 ```sh
-pytest test/ -v                                    # Run all functional tests
-pytest test/segment_max_csr/test_segment_max_csr.py -v             # Single operator test
-pytest test/segment_max_csr/test_segment_max_csr.py::test_func -v  # Single test case
+# Run all functional tests for the local chip model (950→arch35, A2/A3→arch22)
+pytest test/ -v
+# Or target a directory directly
+pytest test/ -v
+pytest test/segment_max_csr/arch35/test_segment_max_csr.py -v             # Single operator test
+pytest test/segment_max_csr/arch35/test_segment_max_csr.py::test_func -v  # Single test case
 ```
+
+> Note: `pytest test/` only collects the directory matching the local chip model — on 950 only `arch35` runs (`arch22` is ignored), on A2/A3 only `arch22` runs (`arch35` is ignored).
 
 ### 5.2 Running Performance Tests
 
 ```sh
-NPU_DEVICE_ID=<device_id> python test/<op>/benchmark_<op>.py
+NPU_DEVICE_ID=<device_id> python test/<op>/<arch>/benchmark_<op>.py
 ```
 
 Here, `<op>` is the operator name, and `<device_id>` is the device ID.
@@ -309,11 +314,13 @@ csrc/npu/<op>/op_kernel/<arch>/
 python/ops_gnn/
 └── <op>.py                  # Python interface
 
-test/<op>/
+test/<op>/<arch>/
 ├── golden.py                # CPU/reference implementation
 ├── test_<op>.py             # Functional tests
 └── benchmark_<op>.py        # Performance benchmark
 ```
+
+Here, `<arch>` is `arch35` (950) or `arch22` (A2/A3) according to the chip model.
 
 Additionally, two files must be modified:
 

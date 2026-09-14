@@ -6,20 +6,17 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 
-def test_import():
-    """测试基本导入"""
-    import ops_gnn
-
-    assert (
-        hasattr(ops_gnn, 'spmm_max_csr')
-        or (
-            hasattr(ops_gnn, 'graclus_cluster')
-            and hasattr(ops_gnn, 'gather_coo')
-        )
-    )
+"""Independent PyTorch reference, usable on CPU without ops_gnn."""
+import torch
 
 
-def test_version():
-    """测试版本号"""
-    import ops_gnn
-    assert ops_gnn.__version__ == '0.1.0'
+def spmm_max_reference(indptr, indices, x, fp32=True):
+    m, n = indptr.numel() - 1, x.size(1)
+    degrees = (indptr[1:] - indptr[:-1]).long()
+    rows = torch.repeat_interleave(torch.arange(m, device=x.device), degrees)
+    values = x.float() if fp32 else x
+    result = torch.full((m, n), -float("inf"), dtype=values.dtype, device=x.device)
+    result.scatter_reduce_(0, rows[:, None].expand(-1, n),
+                           values[indices.long()], reduce="amax", include_self=True)
+    result[degrees == 0] = 0
+    return result.to(x.dtype)

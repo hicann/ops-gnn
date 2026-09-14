@@ -586,11 +586,11 @@ cmake -S . -B build/cmake_release \
 cmake --build build/cmake_release -j4
 export PYTHONPATH=$PWD/python
 export NPU_DEVICE_ID=<device_id>
-pytest -q test/gather_csr/test_gather_csr.py
-python test/gather_csr/golden.py
-python test/gather_csr/benchmark_gather_csr.py --ascendoptest \
+pytest -q test/gather_csr/arch35/test_gather_csr.py
+python test/gather_csr/arch35/golden.py
+python test/gather_csr/arch35/benchmark_gather_csr.py --ascendoptest \
   --ascendoptest-root /path/to/AscendOpTest
-python test/gather_csr/benchmark_gather_csr.py --warmup 20 --iterations 101
+python test/gather_csr/arch35/benchmark_gather_csr.py --warmup 20 --iterations 101
 ```
 
 ---
@@ -652,31 +652,70 @@ values, arg = ops_gnn.scatter_max(src, index)
 # arg:    tensor([2, 3], device='npu:0')
 ```
 
+### 2.10 spmm_max_csr — CSR 稀疏矩阵-向量最大聚合
+
+```python
+ops_gnn.spmm_max_csr(indptr, indices, x, out=None) -> Tensor
+```
+
+仅前向的 `copy_lhs + max` 操作，作用于 CSR 的**行表示目标节点**。
+`indices[e]` 是边 `e` 的源节点。传统的源行 CSR 聚合方向相反，使用前必须先转置。
+
+- `x`：`[K, N]`，float16，NPU 设备；`N > 0`。
+- `indptr`：`[M+1]`；`indices`：`[nnz]`，均为 int32 或 int64 且保持一致，与 `x` 位于同一 NPU 设备。
+- CSR 从 0 开始、到 nnz 结束，非递减，且源节点索引位于 `[0,K)` 内。
+- 返回 `[M,N]` 的 float16。空行为 0；无穷值被保留，任何参与的 NaN 会传播到对应输出特征。
+- 非连续输入会被转为连续。如果提供 `out`，它必须是连续的、形状/dtype/设备与输出一致，且与任何输入不共享存储。
+- 不支持自动求导；`x` 和 `out` 若需要梯度会被拒绝。
+- 无 CPU 回退、不支持其他归约、批量特征或其他特征 dtype。
+
+```python
+import torch
+import torch_npu
+from ops_gnn import spmm_max_csr
+
+# 目标节点 0 接收源节点 0 和 2；目标节点 1 为空。
+ptr = torch.tensor([0, 2, 2], dtype=torch.int64, device='npu')
+idx = torch.tensor([0, 2], dtype=torch.int64, device='npu')
+x = torch.tensor([[-2, 3], [7, 8], [-1, 2]], dtype=torch.float16, device='npu')
+y = spmm_max_csr(ptr, idx, x)  # [[-1, 3], [0, 0]]
+```
+
+内核在当前 PyTorch NPU 流上运行。标量 CSR 校验和 NaN 检测会同步；实现不会将 CSR 数组下载到主机。
+含 NaN 的输入会额外执行一次设备端标量扫描以保证 NaN 传播，可能更慢。端到端基准测试包含这些开销和 int64 转换。
+
+当设备 UB 容量为 `U` 字节时，最大特征维度为
+`16 * floor((U - 2048) / 128)`：需要容纳两个累加缓冲区和两个特征缓冲区。
+维度与地址字节跨度必须能放入 uint32；更大的输入会报错，实际上限包含在异常信息中。特征不做分块。
+
+源码路由使用 `op_kernel/arch22`；编译仍以 `NPU_ARCH` 决定实际设备。
+硬件支持需要在目标设备上验证通过。
+
 ## 三、测试指南
 
 ### 3.1 运行测试
 
 ```sh
-# 运行所有测试
+# 运行当前机器芯片型号对应的所有测试（pytest test/ 自动只收集对应目录）
 pytest test/ -v
 
-# 运行单个算子测试
-pytest test/gather_csr/test_gather_csr.py -v
-pytest test/segment_max_csr/test_segment_max_csr.py -v
-pytest test/graclus_cluster/test_graclus_cluster.py -v
-python -m pytest test/gather_coo/test_gather_coo.py -v
-pytest test/random_walk/test_random_walk.py -v
-pytest test/radius/test_radius.py -v
-pytest test/sparse/test_sparse.py -v
+# 运行单个算子测试（950 上为 arch35，A2/A3 上为 arch22）
+pytest test/gather_csr/arch35/test_gather_csr.py -v
+pytest test/segment_max_csr/arch35/test_segment_max_csr.py -v
+pytest test/graclus_cluster/arch35/test_graclus_cluster.py -v
+python -m pytest test/gather_coo/arch35/test_gather_coo.py -v
+pytest test/random_walk/arch35/test_random_walk.py -v
+pytest test/radius/arch35/test_radius.py -v
+pytest test/sparse/arch35/test_sparse.py -v
 
 # 运行 random_walk 性能测试
-NPU_DEVICE_ID=<device_id> python test/random_walk/benchmark_random_walk.py
+NPU_DEVICE_ID=<device_id> python test/random_walk/arch35/benchmark_random_walk.py
 
 # 运行 radius 官方标杆性能测试
-python test/radius/benchmark_radius.py
+python test/radius/arch35/benchmark_radius.py
 
 # 运行单个测试用例
-pytest test/segment_max_csr/test_segment_max_csr.py::test_segment_max_csr_basic -v
+pytest test/segment_max_csr/arch35/test_segment_max_csr.py::test_segment_max_csr_basic -v
 ```
 
 ### 3.2 测试编写模板

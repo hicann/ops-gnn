@@ -14,7 +14,7 @@ ops-gnn/
 ├── docs/                       # Docs (API reference: docs/*/api_reference.md)
 ├── python/                     # Python source directory
 │   └── ops_gnn/                # Python package directory
-├── test/                       # Test directory
+├── test/                       # Test directory (split by arch: arch22 / arch35)
 ├── scripts/                    # Build scripts directory
 │   └── build.sh                # Unified build script
 ├── cmake/                      # CMake configuration
@@ -38,7 +38,7 @@ Each operator directory under `csrc/npu` contains `op_host` and `op_kernel/<arch
 - A torch_npu build matched to PyTorch and CANN
 - CANN Toolkit (AscendC compiler)
 - C++17 or later compiler
-- Supported platform: Ascend 950 series; other platforms are not supported yet
+- Supported platform: Ascend 950 (arch35) and A2/A3 (910B/910C, arch22); other platforms are not supported
 
 ### CANN Environment Setup
 
@@ -87,30 +87,30 @@ cmake --build .
 # Install test dependencies
 pip install pytest pytest-cov
 
-# Quick start: run a single or a few test groups first
-pytest test/test_import.py -v            # Import tests
+# Quick start: run the import tests for the current architecture (arch35 on 950, arch22 on A2/A3)
+pytest test/test_import.py -v
 
-# Run all functional tests
+# Run all functional tests for the local chip model (950→arch35, A2/A3→arch22)
 pytest test/ -v
 ```
 
 Run the functional tests for one operator:
 
 ```bash
-NPU_DEVICE_ID=<device_id> python3 -m pytest test/<op>/test_<op>.py -v
+NPU_DEVICE_ID=<device_id> python3 -m pytest test/<op>/<arch>/test_<op>.py -v
 ```
 
-Here, `<op>` is the operator name, and `<device_id>` is the device ID.
+Here, `<arch>` is `arch35` (950) or `arch22` (A2/A3) according to the chip model, `<op>` is the operator name, and `<device_id>` is the device ID.
 
 ## Performance Tests
 
 Run the performance tests for one operator:
 
 ```bash
-NPU_DEVICE_ID=<device_id> python3 test/<op>/benchmark_<op>.py
+NPU_DEVICE_ID=<device_id> python3 test/<op>/<arch>/benchmark_<op>.py
 ```
 
-Here, `<op>` is the operator name, and `<device_id>` is the device ID.
+Here, `<arch>` is `arch35` (950) or `arch22` (A2/A3) according to the chip model, `<op>` is the operator name, and `<device_id>` is the device ID.
 
 ## Usage Examples
 
@@ -152,15 +152,16 @@ print(result.shape)  # torch.Size([4, 6, 64])
 
 | Operator | Description | Device Support | API Reference |
 |----------|-------------|----------------|---------------|
-| `gather_coo` | Expand source rows by sorted COO indices | NPU | [gather_coo — COO Row Expansion](docs/en/api_reference.md#25-gather_coo--coo-row-expansion) |
-| `gather_csr` | Expands segment features using CSR pointers | NPU | [gather_csr - CSR Segment Expansion](docs/en/api_reference.md#29-gather_csr---csr-segment-expansion) |
-| `random_walk` | Uniform or node2vec-biased random walks on COO graphs | NPU | [random_walk — NPU Random Walk](docs/en/api_reference.md#28-random_walk--npu-random-walk) |
-| `segment_max_csr` | Segmented max reduction on CSR format | NPU | [segment_max_csr — CSR Segmented Max](docs/en/api_reference.md#22-segment_max_csr--csr-segmented-max) |
-| `radius` / `radius_graph` | Radius neighbor search (torch_cluster compatible, Ascend 950PR) | NPU | [radius / radius_graph — Radius Neighbor Search](docs/en/api_reference.md#23-radius--radius_graph--radius-neighbor-search) |
-| `graclus_cluster` | Greedy graph clustering | NPU / CPU fallback for float64 | [graclus_cluster — Greedy Graph Clustering](docs/en/api_reference.md#24-graclus_cluster--greedy-graph-clustering) |
-| `ind2ptr` | Sorted row indices to CSR row pointer (torch_sparse-aligned) | NPU | [ind2ptr — Sorted Row Indices to CSR Row Pointer](docs/en/api_reference.md#26-ind2ptr--sorted-row-indices-to-csr-row-pointer) |
-| `ptr2ind` | CSR row pointer to row indices (torch_sparse-aligned) | NPU | [ptr2ind — CSR Row Pointer to Row Indices](docs/en/api_reference.md#27-ptr2ind--csr-row-pointer-to-row-indices) |
-| `scatter` / `scatter_*` | torch_scatter-compatible indexed reductions | NPU / CPU fallback for float64 and int64 | [scatter — Scatter Reductions](docs/en/api_reference.md#210-scatter--scatter-reductions) |
+| `gather_coo` | Expand source rows by sorted COO indices | NPU | [gather_coo — COO Row Expansion](docs/en/api_reference.md#24-gather_coo--coo-row-expansion) |
+| `gather_csr` | Expands segment features using CSR pointers | NPU | [gather_csr - CSR Segment Expansion](docs/en/api_reference.md#28-gather_csr---csr-segment-expansion) |
+| `random_walk` | Uniform or node2vec-biased random walks on COO graphs | NPU | [random_walk — NPU Random Walk](docs/en/api_reference.md#27-random_walk--npu-random-walk) |
+| `segment_max_csr` | Segmented max reduction on CSR format | NPU | [segment_max_csr — CSR Segmented Max](docs/en/api_reference.md#21-segment_max_csr--csr-segmented-max) |
+| `radius` / `radius_graph` | Radius neighbor search (torch_cluster compatible, Ascend 950PR) | NPU | [radius / radius_graph — Radius Neighbor Search](docs/en/api_reference.md#22-radius--radius_graph--radius-neighbor-search) |
+| `graclus_cluster` | Greedy graph clustering | NPU / CPU fallback for float64 | [graclus_cluster — Greedy Graph Clustering](docs/en/api_reference.md#23-graclus_cluster--greedy-graph-clustering) |
+| `ind2ptr` | Sorted row indices to CSR row pointer (torch_sparse-aligned) | NPU | [ind2ptr — Sorted Row Indices to CSR Row Pointer](docs/en/api_reference.md#25-ind2ptr--sorted-row-indices-to-csr-row-pointer) |
+| `ptr2ind` | CSR row pointer to row indices (torch_sparse-aligned) | NPU | [ptr2ind — CSR Row Pointer to Row Indices](docs/en/api_reference.md#26-ptr2ind--csr-row-pointer-to-row-indices) |
+| `scatter` / `scatter_*` | torch_scatter-compatible indexed reductions | NPU / CPU fallback for float64 and int64 | [scatter — Scatter Reductions](docs/en/api_reference.md#29-scatter--scatter-reductions) |
+| `spmm_max_csr` | Maximum aggregation over a CSR sparse matrix | NPU (A2/A3, arch22) | [spmm_max_csr — CSR Sparse Matrix-Vector Max Aggregation](docs/en/api_reference.md#210-spmm_max_csr--csr-sparse-matrix-vector-max-aggregation) |
 
 ## Development Guide
 
@@ -171,9 +172,9 @@ print(result.shape)  # torch.Size([4, 6, 64])
 3. Add PyTorch bindings in `csrc/pybind.cpp`
 4. Create Python interface declaration files in `python/ops_gnn/`
 5. Update `python/ops_gnn/__init__.py` to export the new function
-6. Add `golden.py`, `test_<op>.py`, and `benchmark_<op>.py` under `test/<op>/`
+6. Add `golden.py`, `test_<op>.py`, and `benchmark_<op>.py` under `test/<op>/<arch>/`
 
-Here, `<op>` is the operator name.
+Here, `<op>` is the operator name, and `<arch>` is `arch35` (950) or `arch22` (A2/A3) according to the chip model.
 
 ## License
 

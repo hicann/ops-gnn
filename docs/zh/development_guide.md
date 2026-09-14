@@ -53,7 +53,7 @@ ops-gnn 依赖以下组件：
 
 `torch` 和 `torch_npu` 需从[昇腾社区下载页面](https://www.hiascend.com/developer/download/community)获取适配 Ascend 硬件的版本。
 
-支持平台为 Ascend 950 系列，暂不支持其他平台。
+支持平台为 Ascend 950（arch35）与 A2/A3（910B/910C，arch22），其他平台不支持。
 
 ```sh
 # 系统工具链
@@ -122,7 +122,7 @@ ops-gnn
 ├── docs/                           # 文档目录（API 说明见 docs/*/api_reference.md）
 ├── python/                         # Python 源码目录
 │   └── ops_gnn/                    # Python 包目录
-├── test/                           # 测试目录
+├── test/                           # 测试目录（按 arch 拆分：arch22 / arch35）
 ├── scripts/                        # 构建脚本目录
 │   └── build.sh                    # 统一构建/测试脚本（python/cpp/all/test）
 ├── cmake/                          # CMake 配置
@@ -135,7 +135,7 @@ ops-gnn
 └── LICENSE                         # CANN 许可证
 ```
 
-`csrc/npu` 下各算子目录包含 `op_host` 和 `op_kernel/<arch>`；`test` 下各算子目录包含 `golden.py`、功能测试文件和性能测试文件。其中，`<arch>` 表示目标架构对应的目录名。
+`csrc/npu` 下各算子目录包含 `op_host` 和 `op_kernel/<arch>`；测试按 `test/<算子>/<arch>` 组织，各架构子目录包含 `golden.py`、功能测试文件和性能测试文件。其中，`<arch>` 表示目标架构对应的目录名。编译与测试均只处理当前机器芯片型号对应的目录：950 → `arch35`，A2(910B)/A3(910C) → `arch22`，其他芯片型号不支持。
 
 ### 2.3 核心文件说明
 
@@ -209,7 +209,7 @@ CMakeLists.txt 负责编译 AscendC Kernel 和 PyTorch 绑定库：
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
-| `NPU_ARCH` | NPU 架构 | `dav-3510`（950）/ `dav-2201`（910B） |
+| `NPU_ARCH` | NPU 架构 | 按芯片型号自动检测：`dav-3510`（950 → arch35）/ `dav-2201`（A2(910B)/A3(910C) → arch22）；可显式设置覆盖检测结果 |
 | `WITH_PYTHON` | 是否编译 Python 绑定 | `ON` |
 | `ASCEND_HOME_PATH` | CANN 安装路径 | 从环境变量读取 |
 | `Python3_ROOT_DIR` | Python 根目录 | build.sh 自动导出 |
@@ -223,18 +223,23 @@ CMakeLists.txt 负责编译 AscendC Kernel 和 PyTorch 绑定库：
 ### 5.1 运行功能测试
 
 ```sh
-pytest test/ -v                                    # 运行所有功能测试
-pytest test/segment_max_csr/test_segment_max_csr.py -v             # 单个算子测试
-pytest test/segment_max_csr/test_segment_max_csr.py::test_func -v  # 单个测试用例
+# 运行当前机器芯片型号对应的所有功能测试（950→arch35，A2/A3→arch22）
+pytest test/ -v
+# 或直接指定目录
+pytest test/ -v
+pytest test/segment_max_csr/arch35/test_segment_max_csr.py -v             # 单个算子测试
+pytest test/segment_max_csr/arch35/test_segment_max_csr.py::test_func -v  # 单个测试用例
 ```
+
+> 说明：`pytest test/` 会依据本地芯片型号只收集对应目录 —— 950 上只跑 `arch35`（`arch22` 被忽略），A2/A3 上只跑 `arch22`（`arch35` 被忽略）。
 
 ### 5.2 运行性能测试
 
 ```sh
-NPU_DEVICE_ID=<device_id> python test/<op>/benchmark_<op>.py
+NPU_DEVICE_ID=<device_id> python test/<op>/<arch>/benchmark_<op>.py
 ```
 
-其中，`<op>` 表示算子名，`<device_id>` 表示设备 ID。
+其中，`<arch>` 按芯片型号取 `arch35`（950）或 `arch22`（A2/A3），`<op>` 表示算子名，`<device_id>` 表示设备 ID。
 
 ### 5.3 功能测试编写模式
 
@@ -306,11 +311,13 @@ csrc/npu/<op>/op_kernel/<arch>/
 python/ops_gnn/
 └── <op>.py                  # Python 接口
 
-test/<op>/
+test/<op>/<arch>/
 ├── golden.py                # CPU/参考实现
 ├── test_<op>.py             # 功能测试
 └── benchmark_<op>.py        # 性能测试
 ```
+
+其中 `<arch>` 按芯片型号取 `arch35`（950）或 `arch22`（A2/A3）。
 
 此外需修改两个文件：
 

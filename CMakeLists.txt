@@ -23,13 +23,52 @@ set(OPSGNN_VERSION 0.1.0)
 
 set(VALID_NPU_ARCHS dav-3510 dav-2201)
 if(NOT DEFINED NPU_ARCH OR NPU_ARCH STREQUAL "")
-    set(NPU_ARCH "dav-3510" CACHE STRING "NPU architecture")
+    find_program(NPU_SMI_EXECUTABLE npu-smi)
+    if(NOT NPU_SMI_EXECUTABLE)
+        message(WARNING "由于检测不到 NPU 设备，当前默认以 Ascend 950 设备进行编译 "
+                        "(dav-3510 / arch35)；原因：未找到 npu-smi。"
+                        "Override with -DNPU_ARCH=dav-2201 or -DNPU_ARCH=dav-3510.")
+        set(NPU_ARCH "dav-3510" CACHE STRING "NPU architecture" FORCE)
+    else()
+        execute_process(
+            COMMAND ${NPU_SMI_EXECUTABLE} info -m
+            RESULT_VARIABLE NPU_SMI_RESULT
+            OUTPUT_VARIABLE NPU_SMI_OUTPUT
+            ERROR_VARIABLE NPU_SMI_ERROR
+        )
+        if(NOT NPU_SMI_RESULT EQUAL 0)
+            string(STRIP "${NPU_SMI_OUTPUT}" NPU_SMI_OUTPUT)
+            string(STRIP "${NPU_SMI_ERROR}" NPU_SMI_ERROR)
+            message(WARNING
+                "由于检测不到 NPU 设备，当前默认以 Ascend 950 设备进行编译 "
+                "(dav-3510 / arch35)。\n"
+                "  执行命令: ${NPU_SMI_EXECUTABLE} info -m\n"
+                "  返回值: ${NPU_SMI_RESULT}\n"
+                "  标准输出: ${NPU_SMI_OUTPUT}\n"
+                "  标准错误: ${NPU_SMI_ERROR}\n"
+                "请检查 NPU 驱动、设备权限及 npu-smi 是否可正常运行；"
+                "也可通过 -DNPU_ARCH=dav-2201 或 -DNPU_ARCH=dav-3510 显式指定目标架构。")
+            set(NPU_ARCH "dav-3510" CACHE STRING "NPU architecture" FORCE)
+        else()
+            string(TOLOWER "${NPU_SMI_OUTPUT}" NPU_SMI_OUTPUT_LOWER)
+            # 按芯片型号识别：A3(910C)/A2(910B) -> dav-2201(arch22)；950 -> dav-3510(arch35)
+            if(NPU_SMI_OUTPUT_LOWER MATCHES "ascend[[:space:]]*910_93" OR NPU_SMI_OUTPUT_LOWER MATCHES "ascend[[:space:]]*910c" OR NPU_SMI_OUTPUT_LOWER MATCHES "ascend[[:space:]]*910b")
+                set(NPU_ARCH "dav-2201" CACHE STRING "NPU architecture" FORCE)
+            elseif(NPU_SMI_OUTPUT_LOWER MATCHES "ascend[[:space:]]*950")
+                set(NPU_ARCH "dav-3510" CACHE STRING "NPU architecture" FORCE)
+            else()
+                message(FATAL_ERROR "不支持的芯片型号，仅支持 950 / A2(910B) / A3(910C)。可显式设置 -DNPU_ARCH=dav-3510 或 -DNPU_ARCH=dav-2201。npu-smi 输出: ${NPU_SMI_OUTPUT}")
+            endif()
+        endif()
+    endif()
+    message(STATUS "Auto-detected NPU_ARCH=${NPU_ARCH}")
 endif()
 if(NOT "${NPU_ARCH}" IN_LIST VALID_NPU_ARCHS)
     message(FATAL_ERROR "Unsupported NPU_ARCH: ${NPU_ARCH}. Supported values: dav-3510, dav-2201")
 endif()
 
 option(WITH_PYTHON "Link to Python when building" ON)
+message(STATUS "ops_gnn build: NPU_ARCH=${NPU_ARCH}")
 
 ###############################################################################
 # System Detection
@@ -213,17 +252,38 @@ message(STATUS "Found Torch NPU: ${TORCH_NPU_INSTALL_PREFIX}")
 # Source Files
 ###############################################################################
 
-file(GLOB_RECURSE NPU_ASC_FILES 
+file(GLOB_RECURSE NPU_ARCH22_FILES
+    csrc/npu/*/op_kernel/arch22/*.asc
+    csrc/npu/*/op_kernel/arch22/*.cpp
+)
+file(GLOB_RECURSE NPU_ARCH22_HEADERS
+    csrc/npu/*/op_kernel/arch22/*.h
+)
+file(GLOB_RECURSE NPU_ARCH35_FILES
     csrc/npu/*/op_kernel/arch35/*.asc
     csrc/npu/*/op_kernel/arch35/*.cpp
 )
-file(GLOB_RECURSE NPU_KERNEL_HEADERS
+file(GLOB_RECURSE NPU_ARCH35_HEADERS
     csrc/npu/*/op_kernel/arch35/*.h
 )
 
-file(GLOB_RECURSE NPU_CPP_INTERFACE_FILES 
-    csrc/npu/*/op_host/*.cpp
-)
+if(NPU_ARCH STREQUAL "dav-2201")
+    # A2(910B)/A3(910C): 只编译 arch22 算子（spmm_max）
+    set(NPU_ASC_FILES ${NPU_ARCH22_FILES})
+    set(NPU_KERNEL_HEADERS ${NPU_ARCH22_HEADERS})
+    set(NPU_CPP_INTERFACE_FILES
+        csrc/npu/spmm_max/op_host/spmm_max.cpp
+    )
+else()
+    # 950: 只编译 arch35 算子
+    set(NPU_ASC_FILES ${NPU_ARCH35_FILES})
+    set(NPU_KERNEL_HEADERS ${NPU_ARCH35_HEADERS})
+    file(GLOB_RECURSE NPU_CPP_INTERFACE_FILES
+        csrc/npu/*/op_host/*.cpp
+    )
+    # 排除 arch22 算子（spmm_max）的 host 接口，950 上不编译
+    list(FILTER NPU_CPP_INTERFACE_FILES EXCLUDE REGEX ".*/spmm_max/op_host/.*")
+endif()
 
 set(OPERATOR_SOURCES
     csrc/pybind.cpp
@@ -308,6 +368,9 @@ endif()
 ###############################################################################
 
 add_library(_pybind SHARED ${OPERATOR_SOURCES})
+if(NPU_ARCH STREQUAL "dav-2201")
+    target_compile_definitions(_pybind PRIVATE OPSGNN_DAV_2201)
+endif()
 
 target_compile_definitions(_pybind PRIVATE 
     WITH_PYTHON WITH_NPU AT_PARALLEL_OPENMP 

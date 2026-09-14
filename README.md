@@ -14,7 +14,7 @@ ops-gnn/
 ├── docs/                       # 文档目录（API 说明见 docs/*/api_reference.md）
 ├── python/                     # Python源码目录
 │   └── ops_gnn/                # Python包目录
-├── test/                       # 测试目录
+├── test/                       # 测试目录（按 arch 拆分：arch22 / arch35）
 ├── scripts/                    # 构建脚本目录
 │   └── build.sh                # 统一构建脚本
 ├── cmake/                      # CMake配置
@@ -27,7 +27,7 @@ ops-gnn/
 └── LICENSE                     # CANN 许可证
 ```
 
-`csrc/npu` 下各算子目录包含 `op_host` 和 `op_kernel/<arch>`；`test` 下各算子目录包含 `golden.py`、功能测试文件和性能测试文件。其中，`<arch>` 表示目标架构对应的目录名。
+`csrc/npu` 下各算子目录包含 `op_host` 和 `op_kernel/<arch>`；测试按 `test/<算子>/<arch>` 组织，各架构子目录包含 `golden.py`、功能测试文件和性能测试文件。其中，`<arch>` 表示目标架构对应的目录名。编译与测试均只处理当前机器芯片型号对应的目录：950 → `arch35`，A2(910B)/A3(910C) → `arch22`，其他芯片型号不支持。
 
 ## 环境要求
 
@@ -38,7 +38,7 @@ ops-gnn/
 - 与 PyTorch、CANN 匹配的 torch_npu
 - CANN Toolkit (AscendC 编译器)
 - C++17 或更高版本编译器
-- 支持平台：Ascend 950系列；暂不支持其他平台
+- 支持平台：Ascend 950（arch35）与 A2/A3（910B/910C，arch22）；其他平台不支持
 
 ### CANN 环境配置
 
@@ -87,30 +87,30 @@ cmake --build .
 # 安装测试依赖
 pip install pytest pytest-cov
 
-# 快速开始：先跑单个/少量组别用例
-pytest test/test_import.py -v            # 导入用例
+# 快速开始：先跑当前架构的导入用例（950 上为 arch35，A2/A3 上为 arch22）
+pytest test/test_import.py -v
 
-# 运行所有功能测试
+# 运行当前机器芯片型号对应的所有功能测试（950→arch35，A2/A3→arch22）
 pytest test/ -v
 ```
 
 运行单个算子的功能测试：
 
 ```bash
-NPU_DEVICE_ID=<device_id> python3 -m pytest test/<op>/test_<op>.py -v
+NPU_DEVICE_ID=<device_id> python3 -m pytest test/<op>/<arch>/test_<op>.py -v
 ```
 
-其中，`<op>` 表示算子名，`<device_id>` 表示设备 ID。
+其中，`<arch>` 按芯片型号取 `arch35`（950）或 `arch22`（A2/A3），`<op>` 表示算子名，`<device_id>` 表示设备 ID。
 
 ## 性能测试
 
 运行单个算子的性能测试：
 
 ```bash
-NPU_DEVICE_ID=<device_id> python3 test/<op>/benchmark_<op>.py
+NPU_DEVICE_ID=<device_id> python3 test/<op>/<arch>/benchmark_<op>.py
 ```
 
-其中，`<op>` 表示算子名，`<device_id>` 表示设备 ID。
+其中，`<arch>` 按芯片型号取 `arch35`（950）或 `arch22`（A2/A3），`<op>` 表示算子名，`<device_id>` 表示设备 ID。
 
 ## 使用示例
 
@@ -152,15 +152,16 @@ print(result.shape)  # torch.Size([4, 6, 64])
 
 | 算子 | 功能 | 设备支持 | API 文档 |
 |------|------|----------|----------|
-| `gather_coo` | 按有序 COO 索引扩展源行 | NPU | [gather_coo — COO 行扩展](docs/zh/api_reference.md#25-gather_coo--coo-行扩展) |
-| `gather_csr` | 按 CSR 指针展开 segment 特征 | NPU | [gather_csr - CSR 分段展开](docs/zh/api_reference.md#29-gather_csr---csr-分段展开) |
-| `random_walk` | COO 图上的均匀或 node2vec 偏置随机游走 | NPU | [random_walk — NPU 随机游走](docs/zh/api_reference.md#28-random_walk--npu-随机游走) |
-| `segment_max_csr` | CSR 格式的分段最大值运算 | NPU | [segment_max_csr — CSR 分段最大值](docs/zh/api_reference.md#22-segment_max_csr--csr-分段最大值) |
-| `radius` / `radius_graph` | 半径内邻居搜索（torch_cluster 兼容，Ascend 950PR） | NPU | [radius / radius_graph — 半径内邻居搜索](docs/zh/api_reference.md#23-radius--radius_graph--半径内邻居搜索) |
-| `graclus_cluster` | 图贪心聚类 | NPU / CPU float64 回退 | [graclus_cluster — 图贪心聚类](docs/zh/api_reference.md#24-graclus_cluster--图贪心聚类) |
-| `ind2ptr` | 有序行索引转 CSR 行指针（对齐 torch_sparse） | NPU | [ind2ptr — 行索引转 CSR 行指针](docs/zh/api_reference.md#26-ind2ptr--行索引转-csr-行指针) |
-| `ptr2ind` | CSR 行指针转行索引（对齐 torch_sparse） | NPU | [ptr2ind — CSR 行指针转行索引](docs/zh/api_reference.md#27-ptr2ind--csr-行指针转行索引) |
-| `scatter` / `scatter_*` | 与 torch_scatter 对齐的索引分组归约 | NPU / CPU float64、int64 回退 | [scatter — Scatter 系列归约](docs/zh/api_reference.md#210-scatter--scatter-系列归约) |
+| `gather_coo` | 按有序 COO 索引扩展源行 | NPU | [gather_coo — COO 行扩展](docs/zh/api_reference.md#24-gather_coo--coo-行扩展) |
+| `gather_csr` | 按 CSR 指针展开 segment 特征 | NPU | [gather_csr - CSR 分段展开](docs/zh/api_reference.md#28-gather_csr---csr-分段展开) |
+| `random_walk` | COO 图上的均匀或 node2vec 偏置随机游走 | NPU | [random_walk — NPU 随机游走](docs/zh/api_reference.md#27-random_walk--npu-随机游走) |
+| `segment_max_csr` | CSR 格式的分段最大值运算 | NPU | [segment_max_csr — CSR 分段最大值](docs/zh/api_reference.md#21-segment_max_csr--csr-分段最大值) |
+| `radius` / `radius_graph` | 半径内邻居搜索（torch_cluster 兼容，Ascend 950PR） | NPU | [radius / radius_graph — 半径内邻居搜索](docs/zh/api_reference.md#22-radius--radius_graph--半径内邻居搜索) |
+| `graclus_cluster` | 图贪心聚类 | NPU / CPU float64 回退 | [graclus_cluster — 图贪心聚类](docs/zh/api_reference.md#23-graclus_cluster--图贪心聚类) |
+| `ind2ptr` | 有序行索引转 CSR 行指针（对齐 torch_sparse） | NPU | [ind2ptr — 行索引转 CSR 行指针](docs/zh/api_reference.md#25-ind2ptr--行索引转-csr-行指针) |
+| `ptr2ind` | CSR 行指针转行索引（对齐 torch_sparse） | NPU | [ptr2ind — CSR 行指针转行索引](docs/zh/api_reference.md#26-ptr2ind--csr-行指针转行索引) |
+| `scatter` / `scatter_*` | 与 torch_scatter 对齐的索引分组归约 | NPU / CPU float64、int64 回退 | [scatter — Scatter 系列归约](docs/zh/api_reference.md#29-scatter--scatter-系列归约) |
+| `spmm_max_csr` | CSR 稀疏矩阵的最大值聚合 | NPU（A2/A3，arch22） | [spmm_max_csr — CSR 稀疏矩阵-向量最大聚合](docs/zh/api_reference.md#210-spmm_max_csr--csr-稀疏矩阵-向量最大聚合) |
 
 ## 开发指南
 
@@ -171,9 +172,9 @@ print(result.shape)  # torch.Size([4, 6, 64])
 3. 在 `csrc/pybind.cpp` 中添加 PyTorch 绑定
 4. 在 `python/ops_gnn/` 中创建 Python 接口声明文件
 5. 更新 `python/ops_gnn/__init__.py` 导出新函数
-6. 在 `test/<op>/` 中添加 `golden.py`、`test_<op>.py` 和 `benchmark_<op>.py`
+6. 在 `test/<op>/<arch>/` 中添加 `golden.py`、`test_<op>.py` 和 `benchmark_<op>.py`
 
-其中，`<op>` 表示算子名。
+其中，`<op>` 表示算子名，`<arch>` 按芯片型号取 `arch35`（950）或 `arch22`（A2/A3）。
 
 ## 许可证
 

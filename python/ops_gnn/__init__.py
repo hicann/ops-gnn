@@ -8,53 +8,71 @@ INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A
 See LICENSE in the root of the software repository for the full text of the License.
 """
 
+import importlib
+
 import torch
+
+__version__ = '0.1.0'
 
 try:
     import torch_npu
 except ImportError:
     torch_npu = None
 
-from .gather_csr import gather_csr
-from .graclus_cluster import graclus_cluster
-from .gather_coo import gather_coo
-from .ind2ptr import ind2ptr
-from .ptr2ind import ptr2ind
-from .random_walk import random_walk
-from .scatter import (
-    native_available,
-    scatter,
-    scatter_add,
-    scatter_max,
-    scatter_mean,
-    scatter_min,
-    scatter_mul,
-    scatter_sum,
-)
-from .segment_max_csr import segment_max_csr
-from .radius import radius, radius_graph
-from .typing import Tensor, OptTensor
+try:
+    _pybind = importlib.import_module('._pybind', __name__)
+except (ImportError, OSError) as exc:
+    raise ImportError(
+        "无法导入 ops_gnn._pybind 原生扩展，NPU 算子不可用。请确认："
+        "(1) ops_gnn 与当前 Python、PyTorch 和 torch_npu 版本匹配；"
+        "(2) 已加载 CANN 环境（例如执行 set_env.sh，且动态库搜索路径正确）；"
+        "(3) 安装包是为当前 NPU 架构编译的。"
+        "如从源码安装，请设置正确的 NPU_ARCH 后重新编译。"
+        f"原始错误：{exc}"
+    ) from exc
 
-__version__ = '0.1.0'
+if _pybind.npu_arch == 'dav-2201':
+    from .spmm_max import spmm_max_csr
+    __all__ = ['spmm_max_csr']
+else:
+    from .gather_csr import gather_csr
+    from .graclus_cluster import graclus_cluster
+    from .gather_coo import gather_coo
+    from .ind2ptr import ind2ptr
+    from .ptr2ind import ptr2ind
+    from .random_walk import random_walk
+    from .scatter import (
+        native_available,
+        scatter,
+        scatter_add,
+        scatter_max,
+        scatter_mean,
+        scatter_min,
+        scatter_mul,
+        scatter_sum,
+    )
+    from .segment_max_csr import segment_max_csr
+    from .radius import radius, radius_graph
+    from .typing import Tensor, OptTensor
 
-__all__ = [
-    'gather_csr',
-    'graclus_cluster',
-    'gather_coo',
-    'random_walk',
-    'scatter',
-    'scatter_sum',
-    'scatter_add',
-    'scatter_mul',
-    'scatter_mean',
-    'scatter_min',
-    'scatter_max',
-    'native_available',
-    'segment_max_csr',
-    'ind2ptr',
-    'ptr2ind',
-    'radius',
-    'radius_graph',
-    'Tensor',
-    'OptTensor',
-]
+    __all__ = [
+        'gather_csr',
+        'graclus_cluster',
+        'gather_coo',
+        'random_walk',
+        'scatter',
+        'scatter_sum',
+        'scatter_add',
+        'scatter_mul',
+        'scatter_mean',
+        'scatter_min',
+        'scatter_max',
+        'native_available',
+        'segment_max_csr',
+        'ind2ptr',
+        'ptr2ind',
+        'radius',
+        'radius_graph',
+        'Tensor',
+        'OptTensor',
+    ]
