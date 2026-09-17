@@ -12,9 +12,11 @@
 #include <algorithm>
 #include <limits>
 #include <c10/core/DeviceGuard.h>
-#include "spmm_max/op_kernel/arch22/spmm_max_kernel.h"
+#include "spmm_max/op_kernel/arch22/spmm_max.h"
 #include "tiling/platform/platform_ascendc.h"
 #include "torch_npu/csrc/core/npu/NPUStream.h"
+
+namespace opsgnn {
 
 namespace {
 
@@ -127,7 +129,9 @@ torch::Tensor SpmmMaxCsr(const torch::Tensor& indptr, const torch::Tensor& indic
     auto features = x.contiguous();
     const uint32_t hasNan = x.numel() && x.isnan().any().item<bool>();
     auto stream = c10_npu::getCurrentNPUStream(x.get_device()).stream();
-    LaunchSpmmMax(blocks, stream, features.data_ptr(), result.data_ptr(), ptr.data_ptr(),
+    SpmmMax(blocks, stream, features.data_ptr(), result.data_ptr(), ptr.data_ptr(),
                   idx.data_ptr(), split.data_ptr(), m, k, n, nnz, ubBytes, hasNan);
     return result;
 }
+
+}  // namespace opsgnn

@@ -13,6 +13,10 @@
 
 #include "scatter_tiling.h"
 
+namespace opsgnn {
+
 void Scatter(void* src, int64_t* index, void* out, int32_t* count,
                          void* argOut, ScatterDType dtype,
                          const ScatterTilingData& tiling, aclrtStream stream);
+
+}  // namespace opsgnn

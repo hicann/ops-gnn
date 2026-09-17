@@ -12,5 +12,9 @@
 #include <acl/acl.h>
 #include <cstdint>
 
+namespace opsgnn {
+
 void Ind2Ptr(const int64_t* ind, int64_t* out, int64_t M, int64_t numel,
                          aclrtStream stream);
+
+}  // namespace opsgnn

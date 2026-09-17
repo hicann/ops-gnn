@@ -10,6 +10,10 @@
 #pragma once
 #include <torch/extension.h>
 
+namespace opsgnn {
+
 torch::Tensor graclus_cluster_npu(torch::Tensor rowptr, torch::Tensor col, torch::Tensor weight,
                                   torch::Tensor node_perm, int64_t num_nodes, bool has_weight,
                                   int64_t weight_mode);
+
+}  // namespace opsgnn

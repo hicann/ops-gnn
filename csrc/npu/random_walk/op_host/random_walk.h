@@ -14,6 +14,8 @@
 
 #include <tuple>
 
+namespace opsgnn {
+
 std::tuple<torch::Tensor, torch::Tensor> random_walk_npu(
     const torch::Tensor& rowptr,
     const torch::Tensor& col,
@@ -23,3 +25,5 @@ std::tuple<torch::Tensor, torch::Tensor> random_walk_npu(
     double q,
     bool returnEdgeIndices,
     bool neighborsSorted);
+
+}  // namespace opsgnn

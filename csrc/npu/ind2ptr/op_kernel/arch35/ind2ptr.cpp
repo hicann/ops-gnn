@@ -51,6 +51,8 @@ __attribute__((aiv)) __global__ __aicore__ void Ind2PtrKernel(__gm__ int64_t* in
                                               numel);
 }
 
+namespace opsgnn {
+
 void Ind2Ptr(const int64_t* ind, int64_t* out, int64_t M, int64_t numel, aclrtStream stream)
 {
     // AscendC SIMT: each AIV runs IND2PTR_SIMT_THREADS threads; cover workIdx in [0, numel].
@@ -61,3 +63,5 @@ void Ind2Ptr(const int64_t* ind, int64_t* out, int64_t M, int64_t numel, aclrtSt
 
     Ind2PtrKernel<<<coreNum, nullptr, stream>>>(const_cast<int64_t*>(ind), out, M, numel);
 }
+
+}  // namespace opsgnn

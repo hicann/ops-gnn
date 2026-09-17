@@ -20,6 +20,8 @@
 #include "tiling/platform/platform_ascendc.h"
 #include "torch_npu/csrc/core/npu/NPUStream.h"
 
+namespace opsgnn {
+
 namespace {
 
 uint64_t Product(const at::IntArrayRef& sizes, int64_t begin, int64_t end)
@@ -267,3 +269,5 @@ std::tuple<torch::Tensor, torch::Tensor> scatter_forward(
         ToScatterDType(src.scalar_type()), tiling, stream);
     return std::make_tuple(out, argOut);
 }
+
+}  // namespace opsgnn

@@ -19,6 +19,8 @@
 #include "radius/op_kernel/arch35/radius_tiling.h"
 #include "tiling/platform/platform_ascendc.h"
 
+namespace opsgnn {
+
 namespace {
 
 struct GridHostData {
@@ -773,3 +775,5 @@ torch::Tensor radius_npu(
 
     return CompactResult(x, bundle, m, max_num_neighbors);
 }
+
+}  // namespace opsgnn

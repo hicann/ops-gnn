@@ -14,6 +14,8 @@
 #include "segment_max_csr/op_kernel/arch35/segment_max_csr_tiling.h"
 #include <acl/acl_base.h>
 
+namespace opsgnn {
+
 static uint32_t GetCeilInt(uint64_t value1, uint64_t value2)
 {
     if (value2 == 0) {
@@ -196,3 +198,5 @@ torch::Tensor segment_max_csr(torch::Tensor src, torch::Tensor indptr, torch::Te
 
     return out;
 }
+
+}  // namespace opsgnn

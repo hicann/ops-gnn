@@ -11,6 +11,8 @@
 #include "segment_max_csr_kernel.h"
 #include "segment_max_csr.h"
 
+namespace opsgnn {
+
 template <typename T>
 void SegmentMaxCsr(T* src, int32_t* indptr, T* optional_out, T* out,
                                const SegmentMaxCsrTilingData& tiling, aclrtStream stream)
@@ -29,3 +31,5 @@ template void SegmentMaxCsr<float>(float* src, int32_t* indptr, float* optional_
 template void SegmentMaxCsr<int16_t>(int16_t* src, int32_t* indptr, int16_t* optional_out, int16_t* out, const SegmentMaxCsrTilingData& tiling, aclrtStream stream);
 template void SegmentMaxCsr<int32_t>(int32_t* src, int32_t* indptr, int32_t* optional_out, int32_t* out, const SegmentMaxCsrTilingData& tiling, aclrtStream stream);
 template void SegmentMaxCsr<uint16_t>(uint16_t* src, int32_t* indptr, uint16_t* optional_out, uint16_t* out, const SegmentMaxCsrTilingData& tiling, aclrtStream stream);
+
+}  // namespace opsgnn

@@ -22,6 +22,8 @@
 #include <limits>
 #include <mutex>
 
+namespace opsgnn {
+
 namespace {
 
 constexpr uint64_t UINT32_RANGE = 1ULL << 32;
@@ -148,3 +150,5 @@ std::tuple<torch::Tensor, torch::Tensor> random_walk_npu(
 
     return std::make_tuple(nodeOut, edgeOut);
 }
+
+}  // namespace opsgnn

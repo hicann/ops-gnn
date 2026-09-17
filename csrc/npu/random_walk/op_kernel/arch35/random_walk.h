@@ -13,6 +13,8 @@
 #include <acl/acl.h>
 #include <cstdint>
 
+namespace opsgnn {
+
 struct RandomWalkLaunchParams {
     uint64_t startCount;
     uint32_t walkLength;
@@ -29,3 +31,5 @@ struct RandomWalkLaunchParams {
 void RandomWalk(const int64_t* rowptr, const int64_t* col, const int64_t* start,
                             int64_t* nodeOut, int64_t* edgeOut, const RandomWalkLaunchParams& params,
                             aclrtStream stream);
+
+}  // namespace opsgnn

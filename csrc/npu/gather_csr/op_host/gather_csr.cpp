@@ -21,6 +21,8 @@
 #include "tiling/platform/platform_ascendc.h"
 #include "torch_npu/csrc/core/npu/NPUStream.h"
 
+namespace opsgnn {
+
 namespace {
 
 constexpr int64_t kMaxRank = 8;
@@ -342,3 +344,5 @@ torch::Tensor gather_csr(torch::Tensor src, torch::Tensor indptr,
     PreserveAliasedInputs(args, src, indptr, inputs);
     return RunKernel(src, args, inputs, shapeInfo);
 }
+
+}  // namespace opsgnn

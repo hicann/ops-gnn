@@ -352,6 +352,8 @@ __attribute__((aiv)) __global__ __aicore__ void ResolveWalkEdgesKernel(
 
 }  // namespace
 
+namespace opsgnn {
+
 void RandomWalk(const int64_t* rowptr, const int64_t* col, const int64_t* start,
                             int64_t* nodeOut, int64_t* edgeOut, const RandomWalkLaunchParams& params,
                             aclrtStream stream)
@@ -388,3 +390,5 @@ void RandomWalk(const int64_t* rowptr, const int64_t* col, const int64_t* start,
             params.distantThreshold, params.neighborsSorted);
     }
 }
+
+}  // namespace opsgnn

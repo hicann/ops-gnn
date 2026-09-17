@@ -13,5 +13,9 @@
 #include <torch/extension.h>
 #include <c10/util/Optional.h>
 
+namespace opsgnn {
+
 torch::Tensor gather_csr(torch::Tensor src, torch::Tensor indptr,
                          c10::optional<torch::Tensor> out = c10::nullopt);
+
+}  // namespace opsgnn

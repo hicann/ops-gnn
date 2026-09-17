@@ -43,6 +43,8 @@ __attribute__((aiv)) __global__ __aicore__ void Ptr2IndKernel(__gm__ int64_t* pt
                                               numRows);
 }
 
+namespace opsgnn {
+
 void Ptr2Ind(const int64_t* ptr, int64_t* out, int64_t numRows, aclrtStream stream)
 {
     // AscendC SIMT: each AIV runs PTR2IND_SIMT_THREADS threads; cover row in [0, numRows).
@@ -53,3 +55,5 @@ void Ptr2Ind(const int64_t* ptr, int64_t* out, int64_t numRows, aclrtStream stre
 
     Ptr2IndKernel<<<coreNum, nullptr, stream>>>(const_cast<int64_t*>(ptr), out, numRows);
 }
+
+}  // namespace opsgnn

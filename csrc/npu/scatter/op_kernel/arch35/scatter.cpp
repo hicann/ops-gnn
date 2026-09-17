@@ -14,6 +14,8 @@
 
 using namespace ScatterNpu;
 
+namespace opsgnn {
+
 template <typename T>
 static bool LaunchVectorMinMax(void* src, int64_t* index, void* out,
                                int32_t* count, void* argOut,
@@ -234,3 +236,5 @@ void Scatter(void* src, int64_t* index, void* out, int32_t* count,
             break;
     }
 }
+
+}  // namespace opsgnn

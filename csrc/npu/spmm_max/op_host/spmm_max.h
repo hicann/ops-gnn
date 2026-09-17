@@ -12,5 +12,9 @@
 #include <torch/extension.h>
 #include <optional>
 
+namespace opsgnn {
+
 torch::Tensor SpmmMaxCsr(const torch::Tensor& indptr, const torch::Tensor& indices,
                         const torch::Tensor& x, const std::optional<torch::Tensor>& out);
+
+}  // namespace opsgnn

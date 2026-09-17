@@ -14,5 +14,9 @@
 
 #include "gather_csr_tiling.h"
 
+namespace opsgnn {
+
 void GatherCsr(void* src, int64_t* indptr, void* out,
                            const GatherCsrTilingData& tiling, aclrtStream stream);
+
+}  // namespace opsgnn

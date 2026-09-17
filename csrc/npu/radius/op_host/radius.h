@@ -13,6 +13,8 @@
 #include <optional>
 #include <torch/extension.h>
 
+namespace opsgnn {
+
 torch::Tensor radius_npu(
     torch::Tensor x,
     torch::Tensor y,
@@ -23,3 +25,5 @@ torch::Tensor radius_npu(
     int64_t num_workers,
     bool ignore_same_index,
     int64_t stream_handle);
+
+}  // namespace opsgnn

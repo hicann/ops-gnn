@@ -144,6 +144,8 @@ __attribute__((aiv)) __global__ __aicore__ void GraclusClusterKernel(
     }
 }
 
+namespace opsgnn {
+
 void GraclusCluster(int64_t* rowptr, int64_t* col, float* weight, int64_t* node_perm,
                                 int64_t* cluster, uint32_t numNodes, uint32_t hasWeight,
                                 uint32_t weightMode, aclrtStream stream)
@@ -151,3 +153,5 @@ void GraclusCluster(int64_t* rowptr, int64_t* col, float* weight, int64_t* node_
     GraclusClusterKernel<<<1, nullptr, stream>>>(
         rowptr, col, weight, node_perm, cluster, numNodes, hasWeight, weightMode);
 }
+
+}  // namespace opsgnn

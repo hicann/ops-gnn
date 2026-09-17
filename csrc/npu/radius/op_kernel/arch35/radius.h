@@ -13,6 +13,8 @@
 #include <acl/acl.h>
 #include "radius_tiling.h"
 
+namespace opsgnn {
+
 // DType template parameter selects the device-side widening rule:
 //   0 = float32, 1 = fp16 raw uint16, 2 = bf16 raw uint16.
 // tiling_gm points to a GM-resident RadiusTilingData (H2D-copied by the
@@ -35,3 +37,5 @@ struct RadiusLaunchArgs {
 template <typename T, int DType = 0>
 void Radius(T* x, T* y, const RadiusLaunchArgs<T>& args,
                         aclrtStream stream);
+
+}  // namespace opsgnn

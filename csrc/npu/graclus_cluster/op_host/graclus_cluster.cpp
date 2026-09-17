@@ -13,6 +13,8 @@
 #include <limits>
 #include "torch_npu/csrc/core/npu/NPUStream.h"
 
+namespace opsgnn {
+
 namespace {
 void CheckTensor(const torch::Tensor& tensor, const char* name, at::ScalarType dtype)
 {
@@ -60,3 +62,5 @@ torch::Tensor graclus_cluster_npu(torch::Tensor rowptr, torch::Tensor col, torch
     TORCH_CHECK(ret == ACL_SUCCESS, "aclrtSynchronizeStream failed, error code: ", ret);
     return cluster;
 }
+
+}  // namespace opsgnn

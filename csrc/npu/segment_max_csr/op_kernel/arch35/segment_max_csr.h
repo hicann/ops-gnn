@@ -12,5 +12,9 @@
 #include <acl/acl.h>
 #include "segment_max_csr_tiling.h"
 
+namespace opsgnn {
+
 template <typename T>
 void SegmentMaxCsr(T* src, int32_t* indptr, T* optional_out, T* out, const SegmentMaxCsrTilingData& tiling, aclrtStream stream);
+
+}  // namespace opsgnn

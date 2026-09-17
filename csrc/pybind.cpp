@@ -30,31 +30,31 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.doc() = "ops_gnn: NPU extension";
 #ifdef OPSGNN_DAV_2201
     m.attr("npu_arch") = "dav-2201";
-    m.def("spmm_max_csr", &SpmmMaxCsr, py::arg("indptr"), py::arg("indices"),
+    m.def("spmm_max_csr", &opsgnn::SpmmMaxCsr, py::arg("indptr"), py::arg("indices"),
           py::arg("x"), py::arg("out") = py::none(), "CSR SpMM max on Ascend NPU");
 #else
     m.attr("npu_arch") = "dav-3510";
-    m.def("random_walk", &random_walk_npu,
+    m.def("random_walk", &opsgnn::random_walk_npu,
           py::arg("rowptr"), py::arg("col"), py::arg("start"), py::arg("walk_length"),
           py::arg("p") = 1.0, py::arg("q") = 1.0, py::arg("return_edge_indices") = false,
           py::arg("neighbors_sorted") = true,
           "Random walk on a CSR graph (NPU)");
-    m.def("gather_csr", &gather_csr, py::arg("src"), py::arg("indptr"),
+    m.def("gather_csr", &opsgnn::gather_csr, py::arg("src"), py::arg("indptr"),
           py::arg("out") = py::none(), "Gather CSR (NPU)");
-    m.def("segment_max_csr", &segment_max_csr, py::arg("src"), py::arg("indptr"),
+    m.def("segment_max_csr", &opsgnn::segment_max_csr, py::arg("src"), py::arg("indptr"),
           py::arg("optional_out") = torch::Tensor(), "Segment max csr(NPU)");
-    m.def("radius", &radius_npu, py::arg("x"), py::arg("y"),
+    m.def("radius", &opsgnn::radius_npu, py::arg("x"), py::arg("y"),
           py::arg("ptr_x") = py::none(), py::arg("ptr_y") = py::none(),
           py::arg("r"), py::arg("max_num_neighbors"),
           py::arg("num_workers"), py::arg("ignore_same_index") = false,
           py::arg("stream_handle") = 0,
           "Radius neighbor search on NPU");
-    m.def("graclus_cluster_npu", &graclus_cluster_npu, py::arg("rowptr"), py::arg("col"),
+    m.def("graclus_cluster_npu", &opsgnn::graclus_cluster_npu, py::arg("rowptr"), py::arg("col"),
           py::arg("weight"), py::arg("node_perm"), py::arg("num_nodes"), py::arg("has_weight"),
           py::arg("weight_mode"), "Graclus greedy clustering core(NPU)");
-    m.def("ind2ptr", &ind2ptr, py::arg("ind"), py::arg("M"),
+    m.def("ind2ptr", &opsgnn::ind2ptr, py::arg("ind"), py::arg("M"),
           "Convert sorted row indices to CSR row pointer (NPU), same as torch_sparse.ind2ptr");
-    m.def("ptr2ind", &ptr2ind, py::arg("ptr"), py::arg("E"),
+    m.def("ptr2ind", &opsgnn::ptr2ind, py::arg("ptr"), py::arg("E"),
           "Convert CSR row pointer to row indices (NPU), same as torch_sparse.ptr2ind");
     m.def(
         "gather_coo",
@@ -63,13 +63,13 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
             if (!outObject.is_none()) {
                 optionalOut = outObject.cast<torch::Tensor>();
             }
-            return gather_coo(src, index, optionalOut);
+            return opsgnn::gather_coo(src, index, optionalOut);
         },
         py::arg("src"),
         py::arg("index"),
         py::arg("out") = py::none(),
         "Gather rows using a COO index on the current NPU stream");
-    m.def("scatter_forward", &scatter_forward, py::arg("src"), py::arg("index"),
+    m.def("scatter_forward", &opsgnn::scatter_forward, py::arg("src"), py::arg("index"),
           py::arg("dim"), py::arg("out"), py::arg("reduce"), py::arg("has_out"),
           py::arg("hot_target") = -1, "torch_scatter-compatible forward reduction(NPU)");
 #endif

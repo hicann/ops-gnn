@@ -11,7 +11,11 @@
 #include <c10/util/Optional.h>
 #include <torch/extension.h>
 
+namespace opsgnn {
+
 torch::Tensor gather_coo(
     torch::Tensor src,
     torch::Tensor index,
     c10::optional<torch::Tensor> optional_out = c10::nullopt);
+
+}  // namespace opsgnn

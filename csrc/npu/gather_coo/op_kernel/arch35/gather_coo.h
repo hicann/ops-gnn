@@ -13,6 +13,8 @@
 
 #include "gather_coo_tiling.h"
 
+namespace opsgnn {
+
 template <typename T>
 void GatherCoo(
     T* src,
@@ -20,3 +22,5 @@ void GatherCoo(
     T* out,
     const GatherCooTilingData& tiling,
     aclrtStream stream);
+
+}  // namespace opsgnn

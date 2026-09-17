@@ -11,6 +11,10 @@
 
 #include <torch/extension.h>
 
+namespace opsgnn {
+
 std::tuple<torch::Tensor, torch::Tensor> scatter_forward(
     torch::Tensor src, torch::Tensor index, int64_t dim, torch::Tensor out,
     int64_t reduce, bool hasOut, int64_t hotTarget);
+
+}  // namespace opsgnn

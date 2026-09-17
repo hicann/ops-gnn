@@ -366,6 +366,8 @@ __attribute__((aiv)) __global__ __aicore__ void RadiusKernel(
         out_row1, config_ptr, tiling_ptr);
 }
 
+namespace opsgnn {
+
 template <typename T, int DType>
 void Radius(T* x, T* y, const RadiusLaunchArgs<T>& args,
                         aclrtStream stream)
@@ -390,3 +392,5 @@ template void Radius<uint16_t, 1>(uint16_t*, uint16_t*,
 
 template void Radius<uint16_t, 2>(uint16_t*, uint16_t*,
                                               const RadiusLaunchArgs<uint16_t>&, aclrtStream);
+
+}  // namespace opsgnn

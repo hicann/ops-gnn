@@ -11,9 +11,13 @@
 #include "gather_csr_kernel.h"
 #include "gather_csr.h"
 
+namespace opsgnn {
+
 void GatherCsr(void* src, int64_t* indptr, void* out,
                            const GatherCsrTilingData& tiling, aclrtStream stream)
 {
     gather_csr_kernel<<<tiling.activeCoreNum, nullptr, stream>>>(
         static_cast<uint8_t*>(src), indptr, static_cast<uint8_t*>(out), tiling);
 }
+
+}  // namespace opsgnn

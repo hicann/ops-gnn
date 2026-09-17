@@ -14,6 +14,8 @@
 #include "torch_npu/csrc/core/npu/NPUGuard.h"
 #include "torch_npu/csrc/core/npu/NPUStream.h"
 
+namespace opsgnn {
+
 // Launch AscendC kernel on the current NPU stream and return (async).
 torch::Tensor ind2ptr(torch::Tensor ind, int64_t M)
 {
@@ -36,3 +38,5 @@ torch::Tensor ind2ptr(torch::Tensor ind, int64_t M)
     Ind2Ptr(ind.data_ptr<int64_t>(), out.data_ptr<int64_t>(), M, ind.numel(), stream);
     return out;
 }
+
+}  // namespace opsgnn

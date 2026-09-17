@@ -752,8 +752,8 @@ def test_non_contiguous_npu_inputs_and_out(reduce):
         src, index, dim=0, out=out_cpu, dim_size=3, reduce=reduce
     )
 
-    src_npu = src.npu()
-    index_npu = index.npu()
+    src_npu = src.t().contiguous().npu().t()
+    index_npu = index.t().contiguous().npu().t()
     out = torch.full(
         tuple(reversed(out_shape)), initial, dtype=src.dtype, device="npu"
     ).t()

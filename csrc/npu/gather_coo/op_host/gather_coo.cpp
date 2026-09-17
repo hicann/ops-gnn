@@ -20,6 +20,8 @@
 #include "gather_coo/op_kernel/arch35/gather_coo.h"
 #include "gather_coo/op_kernel/arch35/gather_coo_tiling.h"
 
+namespace opsgnn {
+
 namespace {
 
 struct GatherCooShapeInfo {
@@ -288,3 +290,5 @@ torch::Tensor gather_coo(
     // storage-overlapping public out tensors safe.
     return CopyToOptionalOut(optional_out, originalOut, output);
 }
+
+}  // namespace opsgnn

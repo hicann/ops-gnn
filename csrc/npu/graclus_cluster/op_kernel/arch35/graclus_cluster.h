@@ -11,6 +11,10 @@
 #include <acl/acl.h>
 #include <cstdint>
 
+namespace opsgnn {
+
 void GraclusCluster(int64_t* rowptr, int64_t* col, float* weight, int64_t* node_perm,
                                 int64_t* cluster, uint32_t numNodes, uint32_t hasWeight,
                                 uint32_t weightMode, aclrtStream stream);
+
+}  // namespace opsgnn

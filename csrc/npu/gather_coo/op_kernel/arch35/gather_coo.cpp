@@ -9,6 +9,8 @@
 #include "gather_coo_kernel.h"
 #include "gather_coo.h"
 
+namespace opsgnn {
+
 template <typename T>
 void GatherCoo(
     T* src,
@@ -30,3 +32,5 @@ template void GatherCoo<uint16_t>(
     uint16_t*, int64_t*, uint16_t*, const GatherCooTilingData&, aclrtStream);
 template void GatherCoo<uint32_t>(
     uint32_t*, int64_t*, uint32_t*, const GatherCooTilingData&, aclrtStream);
+
+}  // namespace opsgnn

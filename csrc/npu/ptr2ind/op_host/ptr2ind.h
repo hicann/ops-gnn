@@ -11,6 +11,10 @@
 #pragma once
 #include <torch/extension.h>
 
+namespace opsgnn {
+
 // Same signature as torch.ops.torch_sparse.ptr2ind(ptr, E).
 // Launches AscendC SIMT kernel on the current NPU stream (async).
 torch::Tensor ptr2ind(torch::Tensor ptr, int64_t E);
+
+}  // namespace opsgnn
