@@ -152,16 +152,16 @@ print(result.shape)  # torch.Size([4, 6, 64])
 
 | 算子 | 功能 | 设备支持 | API 文档 |
 |------|------|----------|----------|
-| `gather_coo` | 按有序 COO 索引扩展源行 | NPU | [gather_coo — COO 行扩展](docs/zh/api_reference.md#24-gather_coo--coo-行扩展) |
-| `gather_csr` | 按 CSR 指针展开 segment 特征 | NPU | [gather_csr - CSR 分段展开](docs/zh/api_reference.md#28-gather_csr---csr-分段展开) |
-| `random_walk` | COO 图上的均匀或 node2vec 偏置随机游走 | NPU | [random_walk — NPU 随机游走](docs/zh/api_reference.md#27-random_walk--npu-随机游走) |
-| `segment_max_csr` | CSR 格式的分段最大值运算 | NPU | [segment_max_csr — CSR 分段最大值](docs/zh/api_reference.md#21-segment_max_csr--csr-分段最大值) |
-| `radius` / `radius_graph` | 半径内邻居搜索（torch_cluster 兼容，Ascend 950PR） | NPU | [radius / radius_graph — 半径内邻居搜索](docs/zh/api_reference.md#22-radius--radius_graph--半径内邻居搜索) |
-| `graclus_cluster` | 图贪心聚类 | NPU / CPU float64 回退 | [graclus_cluster — 图贪心聚类](docs/zh/api_reference.md#23-graclus_cluster--图贪心聚类) |
-| `ind2ptr` | 有序行索引转 CSR 行指针（对齐 torch_sparse） | NPU | [ind2ptr — 行索引转 CSR 行指针](docs/zh/api_reference.md#25-ind2ptr--行索引转-csr-行指针) |
-| `ptr2ind` | CSR 行指针转行索引（对齐 torch_sparse） | NPU | [ptr2ind — CSR 行指针转行索引](docs/zh/api_reference.md#26-ptr2ind--csr-行指针转行索引) |
-| `scatter` / `scatter_*` | 与 torch_scatter 对齐的索引分组归约 | NPU / CPU float64、int64 回退 | [scatter — Scatter 系列归约](docs/zh/api_reference.md#29-scatter--scatter-系列归约) |
-| `spmm_max_csr` | CSR 稀疏矩阵的最大值聚合 | NPU（A2/A3，arch22） | [spmm_max_csr — CSR 稀疏矩阵-向量最大聚合](docs/zh/api_reference.md#210-spmm_max_csr--csr-稀疏矩阵-向量最大聚合) |
+| `gather_coo` | 按有序 COO 索引扩展源行 | NPU | [gather_coo — COO 行扩展](docs/zh/api_reference.md#gather_coo--coo-行扩展) |
+| `gather_csr` | 按 CSR 指针展开 segment 特征 | NPU | [gather_csr - CSR 分段展开](docs/zh/api_reference.md#gather_csr---csr-分段展开) |
+| `random_walk` | COO 图上的均匀或 node2vec 偏置随机游走 | NPU | [random_walk — NPU 随机游走](docs/zh/api_reference.md#random_walk--npu-随机游走) |
+| `segment_max_csr` | CSR 格式的分段最大值运算 | NPU | [segment_max_csr — CSR 分段最大值](docs/zh/api_reference.md#segment_max_csr--csr-分段最大值) |
+| `radius` / `radius_graph` | 半径内邻居搜索（torch_cluster 兼容，Ascend 950PR） | NPU | [radius / radius_graph — 半径内邻居搜索](docs/zh/api_reference.md#radius--radius_graph--半径内邻居搜索) |
+| `graclus_cluster` | 图贪心聚类 | NPU / CPU float64 回退 | [graclus_cluster — 图贪心聚类](docs/zh/api_reference.md#graclus_cluster--图贪心聚类) |
+| `ind2ptr` | 有序行索引转 CSR 行指针（对齐 torch_sparse） | NPU | [ind2ptr — 行索引转 CSR 行指针](docs/zh/api_reference.md#ind2ptr--行索引转-csr-行指针) |
+| `ptr2ind` | CSR 行指针转行索引（对齐 torch_sparse） | NPU | [ptr2ind — CSR 行指针转行索引](docs/zh/api_reference.md#ptr2ind--csr-行指针转行索引) |
+| `scatter` / `scatter_*` | 与 torch_scatter 对齐的索引分组归约 | NPU / CPU float64、int64 回退 | [scatter — Scatter 系列归约](docs/zh/api_reference.md#scatter--scatter-系列归约) |
+| `spmm_max_csr` | CSR 稀疏矩阵的最大值聚合 | NPU（A2/A3，arch22） | [spmm_max_csr — CSR 稀疏矩阵-向量最大聚合](docs/zh/api_reference.md#spmm_max_csr--csr-稀疏矩阵-向量最大聚合) |
 
 ## 开发指南
 

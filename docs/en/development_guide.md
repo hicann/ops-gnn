@@ -2,9 +2,9 @@
 
 This document provides guidance on development environment setup, operator development, and testing for the ops-gnn library.
 
-## 1. Environment Setup
+## Environment Setup
 
-### 1.1 Install CANN
+### Install CANN
 
 #### Pre-installation
 
@@ -33,11 +33,11 @@ If CANN is installed in a custom path, run:
 source ${install_path}/ascend-toolkit/set_env.sh
 ```
 
-### 1.2 Detailed CANN Installation Guide
+### Detailed CANN Installation Guide
 
 Visit [Ascend Documentation](https://www.hiascend.com/document) → CANN Community Edition → Software Installation for detailed installation steps based on your environment, OS, and use case.
 
-### 1.3 Dependencies
+### Dependencies
 
 ops-gnn depends on the following components:
 
@@ -63,7 +63,7 @@ sudo apt install build-essential cmake
 pip install pytest pytest-cov
 ```
 
-### 1.4 Install ops-gnn
+### Install ops-gnn
 
 ```sh
 # Method 1: pip development mode
@@ -79,9 +79,9 @@ cmake ..
 cmake --build .
 ```
 
-## 2. Project Architecture
+## Project Architecture
 
-### 2.1 Layered Architecture
+### Layered Architecture
 
 ops-gnn adopts a layered architecture of PyTorch extension + AscendC kernel:
 
@@ -115,7 +115,7 @@ ops-gnn adopts a layered architecture of PyTorch extension + AscendC kernel:
 - **Host-side Operator Layer**: Runs on host CPU, responsible for parameter validation, Tiling data computation, AscendC Kernel launch, and Stream synchronization
 - **AscendC Kernel Layer**: Runs on NPU device (AIV cores), implements core computation logic
 
-### 2.2 Directory Structure
+### Directory Structure
 
 ```text
 ops-gnn
@@ -140,7 +140,7 @@ ops-gnn
 
 Each operator directory under `csrc/npu` contains `op_host` and `op_kernel/<arch>`. Each operator directory under `test` contains `golden.py`, a functional test file, and a performance test file. Here, `<arch>` is the directory name for the target architecture.
 
-### 2.3 Core File Descriptions
+### Core File Descriptions
 
 | File | Description |
 |------|-------------|
@@ -155,9 +155,9 @@ Each operator directory under `csrc/npu` contains `op_host` and `op_kernel/<arch
 | `python/ops_gnn/__init__.py` | Package entry, imports from modules and registers to `__all__` |
 | `python/ops_gnn/typing.py` | Type aliases (`Tensor`, `OptTensor`) |
 
-## 3. Coding Standards
+## Coding Standards
 
-### 3.1 Naming Conventions
+### Naming Conventions
 
 **C++ Layer:**
 
@@ -173,7 +173,7 @@ Each operator directory under `csrc/npu` contains `op_host` and `op_kernel/<arch
 - Function names: lowercase underscore-separated, e.g., `segment_max_csr`
 - Consistent with PyTorch style
 
-### 3.2 Code Style
+### Code Style
 
 - C++ follows C++17 standard, uses `#pragma once` for header guards
 - AscendC Kernel uses `__aicore__`, `__global__`, `__gm__` modifiers
@@ -181,7 +181,7 @@ Each operator directory under `csrc/npu` contains `op_host` and `op_kernel/<arch
 - Python interfaces use type annotations (`Tensor`, `OptTensor`, `Optional[Tensor]`)
 - Each file includes CANN Open Software License copyright header
 
-### 3.3 File Organization
+### File Organization
 
 Each operator strictly follows the following file split:
 
@@ -198,9 +198,9 @@ csrc/npu/<op>/
         └── <op>_tiling.h        # Tiling struct
 ```
 
-## 4. Build System
+## Build System
 
-### 4.1 CMake Build
+### CMake Build
 
 CMakeLists.txt compiles AscendC Kernels and PyTorch binding library:
 
@@ -217,13 +217,13 @@ Key CMake variables:
 | `ASCEND_HOME_PATH` | CANN installation path | Read from env |
 | `Python3_ROOT_DIR` | Python root directory | Auto-exported by build.sh |
 
-### 4.2 setuptools Build
+### setuptools Build
 
 `setup.py` invokes CMake to compile and generate a wheel package. `build_with_cmake()` cleans old `CMakeCache.txt` before building to avoid path inconsistencies from pip temp directories.
 
-## 5. Testing Guide
+## Testing Guide
 
-### 5.1 Running Functional Tests
+### Running Functional Tests
 
 ```sh
 # Run all functional tests for the local chip model (950→arch35, A2/A3→arch22)
@@ -236,7 +236,7 @@ pytest test/segment_max_csr/arch35/test_segment_max_csr.py::test_func -v  # Sing
 
 > Note: `pytest test/` only collects the directory matching the local chip model — on 950 only `arch35` runs (`arch22` is ignored), on A2/A3 only `arch22` runs (`arch35` is ignored).
 
-### 5.2 Running Performance Tests
+### Running Performance Tests
 
 ```sh
 NPU_DEVICE_ID=<device_id> python test/<op>/<arch>/benchmark_<op>.py
@@ -244,7 +244,7 @@ NPU_DEVICE_ID=<device_id> python test/<op>/<arch>/benchmark_<op>.py
 
 Here, `<op>` is the operator name, and `<device_id>` is the device ID.
 
-### 5.3 Functional Test Writing Pattern
+### Functional Test Writing Pattern
 
 1. `torch.npu.set_device(int(os.environ.get("NPU_DEVICE_ID", 0)))` to specify NPU device
 2. `torch.manual_seed(42)` for reproducibility
@@ -252,7 +252,7 @@ Here, `<op>` is the operator name, and `<device_id>` is the device ID.
 4. Call `ops_gnn.<op>(...)`
 5. Verify results: device type, shape, numerical correctness
 
-### 5.4 Functional Test Coverage Requirements
+### Functional Test Coverage Requirements
 
 | Scenario | Description |
 |----------|-------------|
@@ -263,11 +263,11 @@ Here, `<op>` is the operator name, and `<device_id>` is the device ID.
 | Multi-dimensional input | 2D/3D Tensor |
 | Broadcast scenarios | indptr broadcasting |
 
-## 6. Operator Development Walkthrough
+## Operator Development Walkthrough
 
 This section uses `segment_max_csr` as an example to illustrate the operator development process.
 
-### 6.1 Call Chain Analysis
+### Call Chain Analysis
 
 ```text
 User Code
@@ -296,7 +296,7 @@ Each layer's responsibilities:
 - **Kernel Launch** (`csrc/npu/<op>/op_kernel/<arch>/<op>.cpp`): `GetCoreNumAiv()` get core count → `<<<coreNum, nullptr, stream>>>` launch → explicit template instantiation
 - **Kernel Impl** (`<op>_kernel.h`): `Init()` parse Tiling + allocate Buffer/Event → `Process()` assign work range per Block → `Compute()` double-buffer pipeline (DataCopy → Max/Add → DataCopy)
 
-### 6.2 New Operator File Checklist
+### New Operator File Checklist
 
 Using `segment_max_csr` as a template, each new operator needs:
 
@@ -329,7 +329,7 @@ Additionally, two files must be modified:
 
 Simple operators can merge files: omit `_tiling.h` when no Tiling, merge `<op>_kernel.h` into `<op>.cpp` when logic is simple (see `ptr2ind`).
 
-### 6.3 Two Kernel Modes
+### Two Kernel Modes
 
 | Feature | ptr2ind | segment_max_csr |
 |---------|-----------|----------------|
@@ -339,7 +339,7 @@ Simple operators can merge files: omit `_tiling.h` when no Tiling, merge `<op>_k
 | Tiling | None (scalar params direct) | Tiling struct |
 | Applicable | Element-wise ops | Reductions, segmentation, multi-stage pipelines |
 
-### 6.4 Development Process Summary
+### Development Process Summary
 
 1. Create directory structure and files following `segment_max_csr`
 2. Define the Tiling struct (no pointers; use 64-bit fields for shape, length, and address values where required)
@@ -351,7 +351,7 @@ Simple operators can merge files: omit `_tiling.h` when no Tiling, merge `<op>_k
 8. Update `__init__.py` exports
 9. Write tests (at minimum: basic functionality, multiple dtypes, edge cases)
 
-## 7. More Resources
+## More Resources
 
 - **[Back to README](../../README_en.md)**
 - **[AscendC Programming Guide](https://www.hiascend.com/document)**

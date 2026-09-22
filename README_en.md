@@ -152,16 +152,16 @@ print(result.shape)  # torch.Size([4, 6, 64])
 
 | Operator | Description | Device Support | API Reference |
 |----------|-------------|----------------|---------------|
-| `gather_coo` | Expand source rows by sorted COO indices | NPU | [gather_coo — COO Row Expansion](docs/en/api_reference.md#24-gather_coo--coo-row-expansion) |
-| `gather_csr` | Expands segment features using CSR pointers | NPU | [gather_csr - CSR Segment Expansion](docs/en/api_reference.md#28-gather_csr---csr-segment-expansion) |
-| `random_walk` | Uniform or node2vec-biased random walks on COO graphs | NPU | [random_walk — NPU Random Walk](docs/en/api_reference.md#27-random_walk--npu-random-walk) |
-| `segment_max_csr` | Segmented max reduction on CSR format | NPU | [segment_max_csr — CSR Segmented Max](docs/en/api_reference.md#21-segment_max_csr--csr-segmented-max) |
-| `radius` / `radius_graph` | Radius neighbor search (torch_cluster compatible, Ascend 950PR) | NPU | [radius / radius_graph — Radius Neighbor Search](docs/en/api_reference.md#22-radius--radius_graph--radius-neighbor-search) |
-| `graclus_cluster` | Greedy graph clustering | NPU / CPU fallback for float64 | [graclus_cluster — Greedy Graph Clustering](docs/en/api_reference.md#23-graclus_cluster--greedy-graph-clustering) |
-| `ind2ptr` | Sorted row indices to CSR row pointer (torch_sparse-aligned) | NPU | [ind2ptr — Sorted Row Indices to CSR Row Pointer](docs/en/api_reference.md#25-ind2ptr--sorted-row-indices-to-csr-row-pointer) |
-| `ptr2ind` | CSR row pointer to row indices (torch_sparse-aligned) | NPU | [ptr2ind — CSR Row Pointer to Row Indices](docs/en/api_reference.md#26-ptr2ind--csr-row-pointer-to-row-indices) |
-| `scatter` / `scatter_*` | torch_scatter-compatible indexed reductions | NPU / CPU fallback for float64 and int64 | [scatter — Scatter Reductions](docs/en/api_reference.md#29-scatter--scatter-reductions) |
-| `spmm_max_csr` | Maximum aggregation over a CSR sparse matrix | NPU (A2/A3, arch22) | [spmm_max_csr — CSR Sparse Matrix-Vector Max Aggregation](docs/en/api_reference.md#210-spmm_max_csr--csr-sparse-matrix-vector-max-aggregation) |
+| `gather_coo` | Expand source rows by sorted COO indices | NPU | [gather_coo — COO Row Expansion](docs/en/api_reference.md#gather_coo--coo-row-expansion) |
+| `gather_csr` | Expands segment features using CSR pointers | NPU | [gather_csr - CSR Segment Expansion](docs/en/api_reference.md#gather_csr---csr-segment-expansion) |
+| `random_walk` | Uniform or node2vec-biased random walks on COO graphs | NPU | [random_walk — NPU Random Walk](docs/en/api_reference.md#random_walk--npu-random-walk) |
+| `segment_max_csr` | Segmented max reduction on CSR format | NPU | [segment_max_csr — CSR Segmented Max](docs/en/api_reference.md#segment_max_csr--csr-segmented-max) |
+| `radius` / `radius_graph` | Radius neighbor search (torch_cluster compatible, Ascend 950PR) | NPU | [radius / radius_graph — Radius Neighbor Search](docs/en/api_reference.md#radius--radius_graph--radius-neighbor-search) |
+| `graclus_cluster` | Greedy graph clustering | NPU / CPU fallback for float64 | [graclus_cluster — Greedy Graph Clustering](docs/en/api_reference.md#graclus_cluster--greedy-graph-clustering) |
+| `ind2ptr` | Sorted row indices to CSR row pointer (torch_sparse-aligned) | NPU | [ind2ptr — Sorted Row Indices to CSR Row Pointer](docs/en/api_reference.md#ind2ptr--sorted-row-indices-to-csr-row-pointer) |
+| `ptr2ind` | CSR row pointer to row indices (torch_sparse-aligned) | NPU | [ptr2ind — CSR Row Pointer to Row Indices](docs/en/api_reference.md#ptr2ind--csr-row-pointer-to-row-indices) |
+| `scatter` / `scatter_*` | torch_scatter-compatible indexed reductions | NPU / CPU fallback for float64 and int64 | [scatter — Scatter Reductions](docs/en/api_reference.md#scatter--scatter-reductions) |
+| `spmm_max_csr` | Maximum aggregation over a CSR sparse matrix | NPU (A2/A3, arch22) | [spmm_max_csr — CSR Sparse Matrix-Vector Max Aggregation](docs/en/api_reference.md#spmm_max_csr--csr-sparse-matrix-vector-max-aggregation) |
 
 ## Development Guide
 

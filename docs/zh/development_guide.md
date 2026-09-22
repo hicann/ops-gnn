@@ -4,7 +4,7 @@
 
 ## 一、环境构建
 
-### 1.1 安装 CANN 软件
+### 安装 CANN 软件
 
 #### 安装前准备
 
@@ -33,11 +33,11 @@ source /usr/local/Ascend/ascend-toolkit/set_env.sh
 source ${install_path}/ascend-toolkit/set_env.sh
 ```
 
-### 1.2 CANN 详细安装指南
+### CANN 详细安装指南
 
 开发者可访问[昇腾文档-昇腾社区](https://www.hiascend.com/document) → CANN 社区版 → 软件安装，查看 CANN 软件安装引导，根据机器环境、操作系统和业务场景选择后阅读详细安装步骤。
 
-### 1.3 依赖安装
+### 依赖安装
 
 ops-gnn 依赖以下组件：
 
@@ -63,7 +63,7 @@ sudo apt install build-essential cmake
 pip install pytest pytest-cov
 ```
 
-### 1.4 安装 ops-gnn
+### 安装 ops-gnn
 
 ```sh
 # 方式一：pip 开发模式安装
@@ -81,7 +81,7 @@ cmake --build .
 
 ## 二、项目架构
 
-### 2.1 分层架构设计
+### 分层架构设计
 
 ops-gnn 采用 PyTorch 扩展 + AscendC 内核的分层架构：
 
@@ -112,7 +112,7 @@ ops-gnn 采用 PyTorch 扩展 + AscendC 内核的分层架构：
 - **Host 端算子层**：运行在主机 CPU，负责参数校验、Tiling 数据计算、AscendC Kernel 启动和 Stream 同步
 - **AscendC Kernel 层**：运行在 NPU 设备端（AIV 核），实现核心计算逻辑
 
-### 2.2 目录结构
+### 目录结构
 
 ```text
 ops-gnn
@@ -137,7 +137,7 @@ ops-gnn
 
 `csrc/npu` 下各算子目录包含 `op_host` 和 `op_kernel/<arch>`；测试按 `test/<算子>/<arch>` 组织，各架构子目录包含 `golden.py`、功能测试文件和性能测试文件。其中，`<arch>` 表示目标架构对应的目录名。编译与测试均只处理当前机器芯片型号对应的目录：950 → `arch35`，A2(910B)/A3(910C) → `arch22`，其他芯片型号不支持。
 
-### 2.3 核心文件说明
+### 核心文件说明
 
 | 文件 | 功能说明 |
 |------|---------|
@@ -154,7 +154,7 @@ ops-gnn
 
 ## 三、代码规范
 
-### 3.1 命名规范
+### 命名规范
 
 **C++ 层：**
 
@@ -170,7 +170,7 @@ ops-gnn
 - 函数名：小写下划线分隔，如 `segment_max_csr`
 - 与 PyTorch 风格保持一致
 
-### 3.2 代码风格
+### 代码风格
 
 - C++ 遵循 C++17 标准，使用 `#pragma once` 头文件保护
 - AscendC Kernel 使用 `__aicore__`、`__global__`、`__gm__` 等修饰符
@@ -178,7 +178,7 @@ ops-gnn
 - Python 接口使用类型注解（`Tensor`, `OptTensor`, `Optional[Tensor]`）
 - 每个文件顶部包含 CANN Open Software License 版权声明
 
-### 3.3 文件组织规范
+### 文件组织规范
 
 每个算子严格遵循以下文件拆分：
 
@@ -197,7 +197,7 @@ csrc/npu/<op>/
 
 ## 四、构建系统
 
-### 4.1 CMake 构建
+### CMake 构建
 
 CMakeLists.txt 负责编译 AscendC Kernel 和 PyTorch 绑定库：
 
@@ -214,13 +214,13 @@ CMakeLists.txt 负责编译 AscendC Kernel 和 PyTorch 绑定库：
 | `ASCEND_HOME_PATH` | CANN 安装路径 | 从环境变量读取 |
 | `Python3_ROOT_DIR` | Python 根目录 | build.sh 自动导出 |
 
-### 4.2 setuptools 构建
+### setuptools 构建
 
 `setup.py` 调用 CMake 编译并生成 wheel 包。`build_with_cmake()` 构建前会自动清理旧 `CMakeCache.txt`，避免 pip 临时目录导致路径不一致。
 
 ## 五、测试指南
 
-### 5.1 运行功能测试
+### 运行功能测试
 
 ```sh
 # 运行当前机器芯片型号对应的所有功能测试（950→arch35，A2/A3→arch22）
@@ -233,7 +233,7 @@ pytest test/segment_max_csr/arch35/test_segment_max_csr.py::test_func -v  # 单�
 
 > 说明：`pytest test/` 会依据本地芯片型号只收集对应目录 —— 950 上只跑 `arch35`（`arch22` 被忽略），A2/A3 上只跑 `arch22`（`arch35` 被忽略）。
 
-### 5.2 运行性能测试
+### 运行性能测试
 
 ```sh
 NPU_DEVICE_ID=<device_id> python test/<op>/<arch>/benchmark_<op>.py
@@ -241,7 +241,7 @@ NPU_DEVICE_ID=<device_id> python test/<op>/<arch>/benchmark_<op>.py
 
 其中，`<arch>` 按芯片型号取 `arch35`（950）或 `arch22`（A2/A3），`<op>` 表示算子名，`<device_id>` 表示设备 ID。
 
-### 5.3 功能测试编写模式
+### 功能测试编写模式
 
 1. `torch.npu.set_device(int(os.environ.get("NPU_DEVICE_ID", 0)))` 指定 NPU 设备
 2. `torch.manual_seed(42)` 保证可复现
@@ -249,7 +249,7 @@ NPU_DEVICE_ID=<device_id> python test/<op>/<arch>/benchmark_<op>.py
 4. 调用 `ops_gnn.<op>(...)` 
 5. 验证结果：设备类型、形状、数值正确性
 
-### 5.4 功能测试覆盖要求
+### 功能测试覆盖要求
 
 | 场景 | 说明 |
 |------|------|
@@ -264,7 +264,7 @@ NPU_DEVICE_ID=<device_id> python test/<op>/<arch>/benchmark_<op>.py
 
 本节以 `segment_max_csr` 为例，说明开发新算子的流程。
 
-### 6.1 调用链分析
+### 调用链分析
 
 ```text
 用户代码
@@ -293,7 +293,7 @@ NPU_DEVICE_ID=<device_id> python test/<op>/<arch>/benchmark_<op>.py
 - **Kernel Launch**（`csrc/npu/<op>/op_kernel/<arch>/<op>.cpp`）：`GetCoreNumAiv()` 获取核数 → `<<<coreNum, nullptr, stream>>>` 启动 → 显式模板实例化
 - **Kernel 实现**（`<op>_kernel.h`）：`Init()` 解析 Tiling + 分配 Buffer/Event → `Process()` 按 Block 分配工作范围 → `Compute()` 双缓冲流水线（DataCopy → Max/Add → DataCopy）
 
-### 6.2 新增算子文件清单
+### 新增算子文件清单
 
 以 `segment_max_csr` 为模板，每个新算子需创建：
 
@@ -326,7 +326,7 @@ test/<op>/<arch>/
 
 简单算子可合并文件：无 Tiling 时省略 `_tiling.h`，逻辑简单时 `<op>_kernel.h` 可合并到 `<op>.cpp`（参考 `ptr2ind`）。
 
-### 6.3 两种 Kernel 模式
+### 两种 Kernel 模式
 
 | 特性 | ptr2ind | segment_max_csr |
 |------|-----------|----------------|
@@ -336,7 +336,7 @@ test/<op>/<arch>/
 | Tiling | 无（标量参数直传） | Tiling 结构体 |
 | 适用 | 逐元素操作 | 规约、分段、多级流水线 |
 
-### 6.4 开发流程总结
+### 开发流程总结
 
 1. 参照 `segment_max_csr` 创建目录结构和文件
 2. 定义 Tiling 结构体（不含指针；形状、长度和地址相关字段按需使用 64-bit）

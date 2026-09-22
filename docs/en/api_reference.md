@@ -2,9 +2,9 @@
 
 This document provides detailed API interface documentation for the ops-gnn library, including operator signatures, parameter descriptions, return values, and usage examples.
 
-## 1. Type Definitions
+## Type Definitions
 
-### 1.1 Tensor
+### Tensor
 
 ```python
 import torch
@@ -13,7 +13,7 @@ Tensor = torch.Tensor
 
 Tensor on NPU device, memory managed by PyTorch.
 
-### 1.2 OptTensor
+### OptTensor
 
 ```python
 from typing import Optional
@@ -24,9 +24,9 @@ Optional Tensor type for parameters that may have default values. `None` is repr
 
 ---
 
-## 2. Core Operator APIs
+## Core Operator APIs
 
-### 2.1 segment_max_csr — CSR Segmented Max
+### segment_max_csr — CSR Segmented Max
 
 **Function Signature:**
 
@@ -184,7 +184,7 @@ result = ops_gnn.segment_max_csr(src, indptr)
 
 ---
 
-### 2.2 radius / radius_graph — Radius Neighbor Search
+### radius / radius_graph — Radius Neighbor Search
 
 NPU implementation interface-compatible with `torch_cluster.radius` /
 `radius_graph` (>= 1.6.0), Ascend 950PR. For each query point in `y`, finds all
@@ -240,7 +240,7 @@ edge_g = ops_gnn.radius_graph(x, 0.8)     # build K-NN graph (loop=False by defa
 - L1: float16 / bfloat16 / float32 (NPU); float64 via CPU fallback (bit-wise, not performance-tested)
 - Empty input returns `[2, 0]` LongTensor without entering the kernel
 
-### 2.3 graclus_cluster — Greedy Graph Clustering
+### graclus_cluster — Greedy Graph Clustering
 
 **Function Signature:**
 
@@ -277,7 +277,7 @@ Implements the greedy graph clustering semantics of `torch_cluster.graclus_clust
 - The algorithm contains randomness; set `torch.manual_seed` before calling the operator when reproducible output is required
 - Self-loops are removed before clustering
 
-### 2.4 gather_coo — COO Row Expansion
+### gather_coo — COO Row Expansion
 
 **Function signature:**
 
@@ -324,7 +324,7 @@ assert returned.data_ptr() == provided.data_ptr()
 
 ---
 
-### 2.5 ind2ptr — Sorted Row Indices to CSR Row Pointer
+### ind2ptr — Sorted Row Indices to CSR Row Pointer
 
 **Function signature:**
 
@@ -369,7 +369,7 @@ rowptr = ops_gnn.ind2ptr(row, 8)
 
 ---
 
-### 2.6 ptr2ind — CSR Row Pointer to Row Indices
+### ptr2ind — CSR Row Pointer to Row Indices
 
 **Function signature:**
 
@@ -414,7 +414,7 @@ row = ops_gnn.ptr2ind(rowptr, 6)
 
 ---
 
-### 2.7 random_walk — NPU Random Walk
+### random_walk — NPU Random Walk
 
 **Function Signature:**
 
@@ -497,7 +497,7 @@ assert edges.shape == (2, 8)
 
 ---
 
-### 2.8 gather_csr - CSR Segment Expansion
+### gather_csr - CSR Segment Expansion
 
 **Signature:**
 
@@ -602,7 +602,7 @@ python test/gather_csr/arch35/benchmark_gather_csr.py --warmup 20 --iterations 1
 
 ---
 
-### 2.9 scatter — Scatter Reductions
+### scatter — Scatter Reductions
 
 The Scatter family follows the forward semantics of `torch_scatter` 2.1.2:
 
@@ -661,7 +661,7 @@ values, arg = ops_gnn.scatter_max(src, index)
 # arg:    tensor([2, 3], device='npu:0')
 ```
 
-### 2.10 spmm_max_csr — CSR Sparse Matrix-Vector Max Aggregation
+### spmm_max_csr — CSR Sparse Matrix-Vector Max Aggregation
 
 ```python
 ops_gnn.spmm_max_csr(indptr, indices, x, out=None) -> Tensor
@@ -706,9 +706,9 @@ The actual limit is included in the exception. Features are not tiled.
 Source routing uses `op_kernel/arch22`; compilation still uses `NPU_ARCH` for the
 actual device. Hardware support requires successful validation on that target.
 
-## 3. Testing Guide
+## Testing Guide
 
-### 3.1 Running Tests
+### Running Tests
 
 ```sh
 # Run all tests for the local chip model (950→arch35, A2/A3→arch22; `pytest test/` only collects the matching directory automatically)
@@ -733,7 +733,7 @@ python test/radius/arch35/benchmark_radius.py
 pytest test/segment_max_csr/arch35/test_segment_max_csr.py::test_segment_max_csr_basic -v
 ```
 
-### 3.2 Test Writing Template
+### Test Writing Template
 
 ```python
 import pytest
@@ -760,7 +760,7 @@ def test_my_operator():
 
 ---
 
-## 4. Back to Main
+## Back to Main
 
 - **[Back to README](../../README_en.md)**
 - **[Development Guide](development_guide.md)**

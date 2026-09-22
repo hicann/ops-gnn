@@ -4,7 +4,7 @@
 
 ## 一、类型定义
 
-### 1.1 Tensor
+### Tensor
 
 ```python
 import torch
@@ -13,7 +13,7 @@ Tensor = torch.Tensor
 
 NPU 设备上的 Tensor，由 PyTorch 管理内存。
 
-### 1.2 OptTensor
+### OptTensor
 
 ```python
 from typing import Optional
@@ -26,7 +26,7 @@ OptTensor = Optional[torch.Tensor]
 
 ## 二、核心算子API
 
-### 2.1 segment_max_csr — CSR 分段最大值
+### segment_max_csr — CSR 分段最大值
 
 **函数签名：**
 
@@ -184,7 +184,7 @@ result = ops_gnn.segment_max_csr(src, indptr)
 
 ---
 
-### 2.2 radius / radius_graph — 半径内邻居搜索
+### radius / radius_graph — 半径内邻居搜索
 
 与 `torch_cluster.radius` / `radius_graph`（>= 1.6.0）接口完全一致的 NPU 实现，
 Ascend 950PR。对 `y` 中每个查询点，在 `x` 中查找欧氏距离 `dist² <= r²` 的所有
@@ -239,7 +239,7 @@ edge_g = ops_gnn.radius_graph(x, 0.8)     # 构建 K-NN 图（默认 loop=False�
 - L1 支持 float16 / bfloat16 / float32（NPU 路径）；float64 走 CPU 回退（bit-wise，不参与性能考核）
 - 空输入返回 `[2, 0]` LongTensor，不进入 kernel
 
-### 2.3 graclus_cluster — 图贪心聚类
+### graclus_cluster — 图贪心聚类
 
 **函数签名：**
 
@@ -276,7 +276,7 @@ Python 层复现 `torch_cluster.graclus_cluster` 预处理：推断 `num_nodes`�
 - 算法包含随机性；固定 `torch.manual_seed` 后结果可复现。
 - 自环会在 Python 层去除。
 
-### 2.4 gather_coo — COO 行扩展
+### gather_coo — COO 行扩展
 
 **函数签名：**
 
@@ -323,7 +323,7 @@ assert returned.data_ptr() == provided.data_ptr()
 
 ---
 
-### 2.5 ind2ptr — 行索引转 CSR 行指针
+### ind2ptr — 行索引转 CSR 行指针
 
 **函数签名：**
 
@@ -368,7 +368,7 @@ rowptr = ops_gnn.ind2ptr(row, 8)
 
 ---
 
-### 2.6 ptr2ind — CSR 行指针转行索引
+### ptr2ind — CSR 行指针转行索引
 
 **函数签名：**
 
@@ -413,7 +413,7 @@ row = ops_gnn.ptr2ind(rowptr, 6)
 
 ---
 
-### 2.7 random_walk — NPU 随机游走
+### random_walk — NPU 随机游走
 
 **函数签名：**
 
@@ -495,7 +495,7 @@ assert edges.shape == (2, 8)
 
 ---
 
-### 2.8 gather_csr - CSR 分段展开
+### gather_csr - CSR 分段展开
 
 **函数签名：**
 
@@ -595,7 +595,7 @@ python test/gather_csr/arch35/benchmark_gather_csr.py --warmup 20 --iterations 1
 
 ---
 
-### 2.9 scatter — Scatter 系列归约
+### scatter — Scatter 系列归约
 
 `scatter` 系列接口与 `torch_scatter` 2.1.2 的前向语义保持一致：
 
@@ -652,7 +652,7 @@ values, arg = ops_gnn.scatter_max(src, index)
 # arg:    tensor([2, 3], device='npu:0')
 ```
 
-### 2.10 spmm_max_csr — CSR 稀疏矩阵-向量最大聚合
+### spmm_max_csr — CSR 稀疏矩阵-向量最大聚合
 
 ```python
 ops_gnn.spmm_max_csr(indptr, indices, x, out=None) -> Tensor
@@ -693,7 +693,7 @@ y = spmm_max_csr(ptr, idx, x)  # [[-1, 3], [0, 0]]
 
 ## 三、测试指南
 
-### 3.1 运行测试
+### 运行测试
 
 ```sh
 # 运行当前机器芯片型号对应的所有测试（pytest test/ 自动只收集对应目录）
@@ -718,7 +718,7 @@ python test/radius/arch35/benchmark_radius.py
 pytest test/segment_max_csr/arch35/test_segment_max_csr.py::test_segment_max_csr_basic -v
 ```
 
-### 3.2 测试编写模板
+### 测试编写模板
 
 ```python
 import pytest
