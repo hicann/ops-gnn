@@ -1,0 +1,220 @@
+# segment_csr 算子设计文档 (Ascend 950PR / arch35)
+
+## 1. 需求与验收口径
+
+实现任务书约定的 `segment_csr` 及 sum/add/mean/min/max 子算子。
+通用入口返回值张量；min/max 子算子额外返回 int64 首现极值行号。
+空段写零值，极值索引为输入归约维长度 M。支持 float16、float32、bfloat16、int8、uint8、
+int32、int64，indptr 固定为 int64。
+
+性能矩阵为 29 个形状 × float16/float32/int32/int64 × 4 种归约，
+共 464 例。每例必须先通过精度检查，再满足
+`任务书标杆耗时 / 自定义 NPU 耗时 >= 0.45`。
+bf16/int8/uint8 属于功能验证范围。所有路径采用确定的归约顺序，
+不使用原子累加，不允许多个 owner 写同一输出。
+
+本设计描述当前寄存器实现及通用回退。最终通过数与性能结论由当前
+构建的验收报告给出，历史精度日志或局部性能结果不代表完整验收。
+
+## 2. Host 维度与输出契约
+
+```text
+dim  = indptr.dim() - 1
+E1   = prod(src.shape[:dim])
+M    = src.shape[dim]
+K    = prod(src.shape[dim + 1:])
+nSeg = indptr.shape[-1] - 1
+src[e, j, k] 地址 = ((e * M) + j) * K + k
+```
+
+indptr 前导维全为 1 时共享一份指针；否则通过 expand + contiguous
+物化为每批一份。非连续 src、indptr 在当前设备上转为连续张量。
+out 形状与 src 相同，归约维替换为 nSeg；提供的 out 校验 dtype、
+device、shape。非连续 out 通过连续工作缓冲计算后复制回原视图。
+src 为空时，未提供 out 则初始化零值，已提供 out 则保留原值；
+min/max 始终返回值与索引两个张量，包括零段、零批次和零通道输出。
+
+校验维度关系后才读取 shape。算子使用 src 所在设备的当前 NPU 流，
+不创建临时流、不进行 host 流同步。导入模块不启动设备 kernel；
+生产入口不需要首次重复发射。连续输入可直接使用原存储，
+非连续输入、广播物化和非连续 out 写回会产生实际设备拷贝。
+
+## 3. 两类计算路径
+
+Host 将满足以下条件的输入交给 AIV 寄存器 kernel：
+
+- dtype 为 float32、float16、int32 或 int64；
+- E1 == 1 且共享 indptr，M 非零且不超过 INT32_MAX；
+- 每行字节数为 32 的倍数，K <= 1024；
+- int64 min/max 额外要求每行字节数为 256 的倍数。
+
+其余输入走 SIMT，包括 bf16/int8/uint8、批维广播、逐批指针、
+奇形 K、超出寄存器路由边界；空 src 在 host 按输出契约处理。
+路由条件是实现约束，不要求用户将通用输入预先填充成特定 K。
+
+## 4. AIV 分块与指针规划
+
+每核获得一段连续的输出段编号。核数来自 `GetCoreNumAiv()`，
+UB 容量来自 `GetCoreMemSize(UB)`。输入块预算为：
+
+```text
+tileBytes = min(64 KiB, floor((UB - 80 KiB) / 2 / 256) * 256)
+maxRows = tileBytes / (K * sizeof(T))
+maxSegments = 2048 / K
+```
+
+TPipe 在 kernel 入口创建并传给计算类。UB 分配如下：
+
+| 缓冲 | 用途 |
+| --- | --- |
+| 两个 input queue slot | 各 tileBytes + 512B，供搬运与计算重叠 |
+| saved | 长段跨块累加值；half 使用 float32 |
+| savedIndex | 长段跨块的 int32 绝对行号 |
+| result / argResult | 最多 2048 个输出元素及 int64 索引 |
+| ptrCache | 最多 2048 个 int64 CSR 边界 |
+
+读取至寄存器的尾部区域具有额外可读空间；存储始终受有效 lane mask
+控制。GM 与 UB 之间统一使用 `DataCopyPad`。
+TQue 管理 input slot 的生产、消费和复用；计算结果完成后通过
+V→MTE3 事件回写，MTE3→V 事件保护输出缓冲复用。
+
+### 均匀段识别
+
+仅当一核的所有边界均可缓存、边界范围合法时，才尝试验证整个指针序列
+是否为 `base + index * length`。设备端寄存器校验逐块检查每个 int64
+边界的高低 32 位，并汇总错误标志，包含最后不足 64 个边界的部分块。
+
+验证通过后，规划器使用已证明的等差序列直接计算段边界与组大小。
+不能缓存全部边界或校验失败时，逐段读取实际指针、裁剪边界，只有
+连续且长度相同的段才合并搬运。不能仅凭首尾边界或 shape 推断均匀。
+
+长度超过 maxRows 的段拆成多个块，通过 `first / last` 管理 saved
+状态。空段不读取输入，仍写零输出及 M 索引。段组与输入块均受 UB
+预算和输出容量约束。
+
+## 5. 寄存器归约
+
+通用寄存器函数以通道块处理数据：值常驻 RegTensor，不在每一行之间
+反复往返 UB。较长块使用四条固定行序链隐藏依赖，最后按固定顺序合并；
+短块使用较小循环。K=32 的适用完整段可以将相邻两行装入 64 个
+float32/int32 lane，再在寄存器内合并两半。
+
+`segment_csr_short_sum.h` 为完整的 2/4/8 行短段提供 sum/mean 特化，
+支持 K=64/128/256 与四种性能 dtype。它按连续输出每次处理 64 个
+元素，用编译期行数展开装载与求和，减少循环与地址计算。
+浮点 mean 在输出 dtype 舍入后以 0.5/0.25/0.125 进行二进制精确缩放；
+整数 mean 使用整数域移位与负数偏置，实现精确的向零截断。
+其他段长使用通用归约与除法。
+
+`segment_csr_narrow_half_sum.h` 处理 fp16、K=32、完整段长 16/32/64
+的 sum/mean。每个 float32 寄存器容纳两行，四条累加链直接以输入值
+初始化，其余装载与加法按编译期行数展开，最后通过寄存器重排合并
+两半通道。求和保持 float32 累加；mean 先舍入 half 和，再执行对应
+二次幂段长的精确缩放。其他形状和分块续算继续使用通用路径。
+
+sum/mean 的值按固定顺序累加。min/max 的每次合并同时处理值与行号：
+值严格更优时更新，相等时选择较小的原始行号。该规则适用于四路合并、
+通道打包合并和跨块续算。
+
+### fp16 极值
+
+完整、非空且满足打包条件的段使用 `segment_csr_half_extrema.h`。
+K=32/64 可在 128 个 half lane 中分别并行处理 4/2 行，K=128/256
+按完整向量宽度处理。每条行链进行严格比较；打包链合并时显式处理
+相等值的首次行号。段内索引使用 uint16，路由要求段长 <= 65535，
+输出时加绝对行基址并扩为 int64。该路径只比较和选择已有 half 值，
+不进行 half 求和或复杂算术。
+
+不满足完整段、长度或打包条件时，通用寄存器路径将值提升为 float32
+后比较。fp16 求和始终在 float32 中累加。
+
+### int64 极值
+
+`segment_csr_int64_extrema.h` 采用单条顺序归约链。一次
+`DIST_DINTLV_B32` 装载将 int64 拆为两组 32 位寄存器：
+高位按 int32 比较，高位相等时低位按 uint32 比较。
+这一字典序保留完整 int64 范围，不转换为浮点数，不依赖输入值较小。
+
+值相等时不更新，所以保留先前的首次索引。跨块加载 saved 值和索引，
+从本块第 0 行继续；中间块保存状态，末块以交错存储写回 int64 值与索引。
+int64 极值因此不需要通用四路链的 64 位比较与索引合并开销。
+
+## 6. 数值语义与 SIMT 回退
+
+浮点 mean 按真实 CPU torch_scatter 的顺序执行：
+
+1. 先完成归约，将和舍入或回绕到 src dtype。
+2. 段长也转换到 src dtype，再将分子与分母转到 float32。
+3. 执行 float32 除法，输出转换采用对应浮点舍入。
+
+因此 fp16 的段长 2049 会先舍入为 2048，65520 会舍入为 infinity；
+这属于 CPU 参考的实际行为。整数 mean 则在源 dtype 中回绕和与段长，
+再使用精确整数除法向零截断，不经 float32 中转。二次幂正段长可通过
+负数偏置与算术右移等价实现，其他情况使用整数除法。int8/uint8 的段长
+转换若回绕为零，CPU 的整数除零行为未定义，本实现明确返回零避免设备异常。
+
+任务包附带 Python golden 的大整数 mean 和空段 arg 与编译后的
+CPU torch_scatter 存在差异。原始样例文件保留不改，另加直接调用真实
+CPU 扩展的对照测试覆盖上述语义，相关差异在自测报告中单独记录。
+
+ATK 补充对照发现 CPU torch_scatter 2.1.2 的 uint8 max 索引边界：
+src=[1,7,2,0]、indptr=[0,0,3,4] 返回 arg=[4,1,1]，最后一个索引
+不在其对应段内。本实现按首次索引定义返回 [4,1,3]，该差异提请
+设计评审确认。ATK 对照使用源 dtype 调用 CPU 接口，避免工具默认
+升精度改变 fp16/bf16 mean 的舍入语义；最终补充检查为 34/35，
+剩余一项即上述 uint8 max 参考索引差异，不计入通过项。
+
+SIMT 以输出元格或 16B 通道包为工作项，每个线程独占自己的输出。
+适用 dtype 的对齐包使用 16B 装载；其他 dtype/形状逐元素处理。
+fp16/bf16 提升到 float32，整数使用 int64 累加；fp16 位编解码覆盖
+subnormal、infinity、overflow 和 round-to-nearest-even。
+SIMT 浮点 mean 同样先将和与段长转换到 src dtype，再转回 float32
+执行除法，避免窄通道回退与寄存器路径采用不同的舍入顺序。
+浮点和整数边界、mean 的 CPU 语义均由独立回归用例核验。
+
+浮点 NaN 的极值传播未纳入当前兼容性契约。合法 CSR 指针非降序，
+kernel 的范围裁剪并不等于完整的无效 CSR 参数检查。
+
+## 7. 验证与构建边界
+
+交付采用完整 ops-gnn 仓库，加载 CANN 环境后执行
+`python3 setup.py build_ext --inplace`。CSR 由主仓统一编译和注册；使用 `_pybind.so` 与
+`libopsgnn_npu_kernel.so`。开发阶段独立工程的动态库不能替代
+完整仓库的集成检查。构建与运行命令见
+[开发指南](../../../zh/development_guide.md)。
+
+完整仓库通过 `_pybind.segment_csr` 连接 Python 接口。产品仓的 TC-11
+使用独立的纯 PyTorch CPU COO 归约参考，按等价 CSR/COO 索引覆盖五种
+归约及含空段布局，不依赖外部 `torch_scatter` 包。冻结验收候选曾与已编译
+CPU `torch_scatter.segment_coo` 对拍，原始逐例证据保留在 PR 验证附件中；
+该历史对拍不作为产品仓测试的安装前置。
+公开 `segment_max_csr` 对 int32 指针保留旧 kernel、仅返回值、初始输出
+参与最大值比较的行为；对 int64 指针调用新算子族并返回值与索引。
+六个新 CSR 接口保持任务书的精确签名，不使用额外关键字参数或特殊
+默认值。历史 `optional_out=` 仅由显式导出的 `segment_max_csr_legacy`
+接受，该别名直接引用原有 int32 接口函数；新 `segment_max_csr` 保留
+int32 指针的第三个位置参数与 `out=` 转发。开发工程的 `_C` 包装接口
+保持任务书原型。
+
+验证分为四组：
+
+- 功能回归：官方、扩展、向量回归与 out 契约，覆盖全部 dtype、广播、
+  不均匀/空/长段、首现索引、确定性、内部指针扰动、数值边界和非连续 out。
+- 真实 CPU 标杆：加载 torch_scatter 2.1.2 的 `_segment_csr_cpu.so`，
+  直接核验值与索引；记录实际动态库哈希，不以近似 golden 替代。
+- 任务书验收：`run_segment_csr_acceptance.py --all`，464 例逐例验证
+  完整值与索引，使用官方端到端计时循环判定 0.45 门槛。
+- Profiler：`profile_segment_csr.py`，固定 warmup=5、active=5，
+  自定义实现与同设备 NPU 张量组合在独立进程分别采集，核对输入及库哈希一致，汇总
+  `op_statistic.csv` 的 `Total Time(us)`。它解释设备耗时，不替代任务书验收。
+
+当前运行的 Markdown 报告记录源码与实际加载二进制哈希、设备、
+软件版本、计时参数和逐例状态。阶段性精度通过或 quick 子集结果
+只能证明相应构建与用例；最终状态必须来自完成的全矩阵报告。
+
+
+### 产品目录对齐说明
+
+测试统一为 `test/segment_csr/arch35/` 下的功能测试、CPU 参考和性能脚本三个文件。
+上文任务专用验收与 profiler 脚本保存在 PR 验证附件的 `validation_inputs/` 中；
+保留原始输入、参考计算和逐例门槛，运行时设置 `CSR_PRODUCT_ROOT` 指向产品仓。

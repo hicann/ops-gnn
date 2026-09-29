@@ -51,7 +51,15 @@ else:
         scatter_mul,
         scatter_sum,
     )
-    from .segment_max_csr import segment_max_csr
+    from .segment_max_csr import segment_max_csr as segment_max_csr_legacy
+    from .segment_csr import (
+        segment_csr,
+        segment_sum_csr,
+        segment_add_csr,
+        segment_mean_csr,
+        segment_min_csr,
+        segment_max_csr,
+    )
     from .radius import radius, radius_graph
     from .typing import Tensor, OptTensor
 
@@ -69,6 +77,12 @@ else:
         'scatter_max',
         'native_available',
         'segment_max_csr',
+        'segment_max_csr_legacy',
+        'segment_csr',
+        'segment_sum_csr',
+        'segment_add_csr',
+        'segment_mean_csr',
+        'segment_min_csr',
         'ind2ptr',
         'ptr2ind',
         'radius',

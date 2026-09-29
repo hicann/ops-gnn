@@ -28,6 +28,10 @@ Optional Tensor type for parameters that may have default values. `None` is repr
 
 ### segment_max_csr — CSR Segmented Max
 
+This section describes the existing `int32` pointer API. The new `int64`
+pointer family is documented under [`segment_csr`](#segment_csr--int64-csr-segment-reductions).
+The two paths differ in empty-segment and return-value semantics.
+
 **Function Signature:**
 
 ```python
@@ -181,6 +185,54 @@ indptr = torch.tensor([[0, 4, 8]], dtype=torch.int32, device='npu')
 result = ops_gnn.segment_max_csr(src, indptr)
 # result shape: (3, 2, 16) — indptr last dim reduced from 3→2, other dims unchanged
 ```
+
+---
+
+### segment_csr — int64 CSR Segment Reductions
+
+On Ascend 950 / arch35, reduce CSR segments deterministically with `sum`,
+`add`, `mean`, `min`, or `max`. The reduction axis is `indptr.dim() - 1`, and
+its output size is `indptr.size(-1) - 1`. Each output has one writer; no global
+atomic accumulation is used.
+
+```python
+segment_csr(src, indptr, out=None, reduce="sum")  # values Tensor only
+segment_sum_csr(src, indptr, out=None)            # Tensor
+segment_add_csr(src, indptr, out=None)            # Tensor
+segment_mean_csr(src, indptr, out=None)           # Tensor
+segment_min_csr(src, indptr, out=None)            # (values, indices)
+segment_max_csr(src, indptr, out=None)            # int64 indptr: (values, indices)
+```
+
+| Argument | Contract |
+| --- | --- |
+| `src` | NPU Tensor; float16, float32, bfloat16, int8, uint8, int32, or int64 |
+| `indptr` | Same-device `int64` Tensor; nondecreasing last dimension with in-range boundaries; leading dimensions may broadcast to `src` |
+| `out` | Optional same-device Tensor with matching dtype and shape; noncontiguous views are supported |
+| `reduce` | Generic API only; `mul` and `dim_size` are unsupported |
+
+For `min/max`, `indices` contains the first extremum's `int64` position along
+the input reduction axis. Empty segments yield zero values and an index equal
+to the input reduction-axis length. Empty `src` preserves a supplied `out`.
+Integer `mean` casts the sum and segment length to the source dtype before
+division toward zero; floating `mean` preserves the sum and count rounding
+order. An int8/uint8 count that casts to zero yields zero. Invalid pointers
+and NaN extrema propagation are outside this interface's extended contract.
+
+```python
+import torch
+import torch_npu
+import ops_gnn
+
+src = torch.tensor([[1., 4.], [2., 3.], [5., 6.]], device="npu")
+indptr = torch.tensor([0, 2, 3], dtype=torch.int64, device="npu")
+summed = ops_gnn.segment_csr(src, indptr, reduce="sum")
+values, indices = ops_gnn.segment_max_csr(src, indptr)
+```
+
+For an `int32` pointer, `segment_max_csr` retains the existing value-only
+path. The historical `optional_out=` keyword remains available through
+`segment_max_csr_legacy`.
 
 ---
 

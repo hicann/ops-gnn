@@ -348,6 +348,49 @@ test/<op>/<arch>/
 8. 更新 `__init__.py` 导出
 9. 编写测试（至少覆盖基本功能、多个 dtype、边界情况）
 
+### segment_csr 文件职责
+
+Host 校验 Tensor 元数据，并在当前 NPU stream 上选择计算路径。
+Kernel 入口为 `SegmentCsr` 和 `SegmentCsrVector`，Python 继续导出
+`segment_*_csr` 算子族。Kernel 文件位于 `csrc/npu/segment_csr/op_kernel/arch35/`：
+
+| 文件 | 职责 |
+| --- | --- |
+| `segment_csr.h` | 枚举、dtype 分发、向量路径条件和入口声明 |
+| `segment_csr.cpp` | 通用 SIMT 归约及 packed 访存 |
+| `segment_csr_vec_kernel.cpp` | AIV 搬运、同步和寄存器路径分发 |
+| `segment_csr_extrema.h` | FP16/INT64 极值及首次出现索引 |
+| `segment_csr_sum.h` | sum/mean 计算及各 dtype 的数值行为 |
+| `segment_csr_uniform.h` | 快路径启用前逐项检查所有分段指针 |
+
+主头文件和主翻译单元按算子名命名，与同仓算子及产品评审要求对齐。
+SIMT 和 AIV 两种执行模型继续分别编译；本轮目录整改不改变计算与分发逻辑。
+
+产品测试采用 `test/segment_csr/arch35/`，只保留三个文件：
+
+| 文件 | 职责 |
+| --- | --- |
+| `test_segment_csr.py` | 将 API、跨调用语义和向量路径用例集中在一个参数化测试套件 |
+| `golden.py` | 纯 PyTorch CPU 值与首次极值索引参考 |
+| `benchmark_segment_csr.py` | 独立的 29 组形状计时，输入和日志辅助函数内聚于该文件 |
+
+合并保留所有原测试函数、断言和参数组合。扩展测试与向量回归的 dtype
+常量分别命名，保留各自不同的支持范围。非连续输入继续在 NPU 上构造
+并断言 stride，内部格式告警继续按失败处理。
+
+任务专用基线表、验收报告编排器和 profiler 脚本放在 PR 验证附件的
+`validation_inputs/` 中。完整的 464 项正确性与性能门禁独立于日常 pytest
+收集。解压附件后，在产品仓根目录执行：
+
+```bash
+PYTHONPATH=python python -m pytest test/segment_csr/arch35 test/segment_max_csr -q
+CSR_PRODUCT_ROOT="$PWD" PYTHONPATH=python python /path/to/evidence/validation_inputs/run_segment_csr_acceptance.py --all --warmup 20 --iter 100
+```
+
+外部验收脚本仅通过 `CSR_PRODUCT_ROOT` 定位产品源码和二进制；输入、参考
+计算、计时方式及 0.45 门槛保持原样。Profiler 独立运行，用于诊断，不能替代接口计时。
+
+
 ## 七、更多资源
 
 - **[返回 README](../../README.md)**

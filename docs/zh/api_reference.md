@@ -28,6 +28,9 @@ OptTensor = Optional[torch.Tensor]
 
 ### segment_max_csr — CSR 分段最大值
 
+本节描述原有的 `int32` 指针接口。新增的 `int64` 指针算子族见下方
+[`segment_csr`](#segment_csr--int64-csr-分段归约算子族)；两条路径的空段和返回值约定不同。
+
 **函数签名：**
 
 ```python
@@ -181,6 +184,50 @@ indptr = torch.tensor([[0, 4, 8]], dtype=torch.int32, device='npu')
 result = ops_gnn.segment_max_csr(src, indptr)
 # result shape: (3, 2, 16) — indptr 的最后一维从 3→2，其他维度不变
 ```
+
+---
+
+### segment_csr — int64 CSR 分段归约算子族
+
+Ascend 950 / arch35 上按 CSR 行指针做确定性分段归约，支持 `sum`、`add`、
+`mean`、`min`、`max`。归约维度为 `indptr.dim() - 1`，输出该维长度为
+`indptr.size(-1) - 1`。每个输出由一个处理单元写回，不使用全局原子累加。
+
+```python
+segment_csr(src, indptr, out=None, reduce="sum")  # 仅返回值 Tensor
+segment_sum_csr(src, indptr, out=None)            # Tensor
+segment_add_csr(src, indptr, out=None)            # Tensor
+segment_mean_csr(src, indptr, out=None)           # Tensor
+segment_min_csr(src, indptr, out=None)            # (values, indices)
+segment_max_csr(src, indptr, out=None)            # int64 indptr: (values, indices)
+```
+
+| 参数 | 约束 |
+| --- | --- |
+| `src` | NPU 张量；支持 float16、float32、bfloat16、int8、uint8、int32、int64 |
+| `indptr` | 同设备 `int64` 张量；最后一维非降序，边界在归约维范围内；前导维可向 `src` 广播 |
+| `out` | 可选，同设备、同 dtype、匹配输出形状；支持非连续视图 |
+| `reduce` | 仅通用接口使用；不支持 `mul`，无 `dim_size` 参数 |
+
+`min/max` 的 `indices` 为首次极值在输入归约维中的 `int64` 位置；空段值为零，
+索引为输入归约维长度。空 `src` 且提供 `out` 时保留已有输出。
+整数 `mean` 先按源 dtype 转换和及段长，再向零截断整数除法；浮点
+`mean` 保留和及段长的舍入顺序。`int8/uint8` 段长转换为零时返回零。
+非法指针和 NaN 极值传播不在此接口的扩展承诺内。
+
+```python
+import torch
+import torch_npu
+import ops_gnn
+
+src = torch.tensor([[1., 4.], [2., 3.], [5., 6.]], device="npu")
+indptr = torch.tensor([0, 2, 3], dtype=torch.int64, device="npu")
+summed = ops_gnn.segment_csr(src, indptr, reduce="sum")
+values, indices = ops_gnn.segment_max_csr(src, indptr)
+```
+
+`segment_max_csr` 遇到 `int32` 指针时仍走原有的仅返回值路径；历史
+`optional_out=` 关键字可通过 `segment_max_csr_legacy` 使用。
 
 ---
 

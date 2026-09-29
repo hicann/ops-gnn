@@ -351,6 +351,55 @@ Simple operators can merge files: omit `_tiling.h` when no Tiling, merge `<op>_k
 8. Update `__init__.py` exports
 9. Write tests (at minimum: basic functionality, multiple dtypes, edge cases)
 
+### segment_csr file responsibilities
+
+The Host validates tensor metadata and selects the current-stream compute path.
+Kernel entry points are `SegmentCsr` and `SegmentCsrVector`; Python exposes the
+`segment_*_csr` family. Kernel files under `csrc/npu/segment_csr/op_kernel/arch35/`:
+
+| File | Responsibility |
+| --- | --- |
+| `segment_csr.h` | Enums, dtype dispatch, vector eligibility and entry declarations |
+| `segment_csr.cpp` | General SIMT reduction and packed accesses |
+| `segment_csr_vec_kernel.cpp` | AIV transfers, synchronization and register dispatch |
+| `segment_csr_extrema.h` | FP16/INT64 extrema and first-occurrence indices |
+| `segment_csr_sum.h` | Sum/mean arithmetic and dtype-specific numeric behavior |
+| `segment_csr_uniform.h` | Validate every pointer before selecting uniform segments |
+
+The main header and translation unit use the operator name, matching neighboring
+operators and the product-review request. The SIMT and AIV execution models keep
+separate translation units. Their arithmetic and dispatch are unchanged by this
+layout revision.
+
+The product test directory follows `test/segment_csr/arch35/` and contains three files:
+
+| File | Responsibility |
+| --- | --- |
+| `test_segment_csr.py` | All API, cross-call semantic and vector-route cases in one parameterized suite |
+| `golden.py` | Pure PyTorch CPU values and first-extremum index reference |
+| `benchmark_segment_csr.py` | Standalone 29-shape timing; input and logging helpers are included here |
+
+Consolidation retains every original test function, assertion and parameter
+combination. Extended-suite and vector-suite dtype constants have distinct names
+to preserve their different domains. On-device strided views remain explicitly
+checked and internal-format warnings remain errors.
+
+Task-specific baseline tables, acceptance/report drivers and profiler scripts
+are distributed in the PR validation attachment under `validation_inputs/`.
+They are not product test modules. Their complete 464-case correctness/performance
+gate remains independent of routine pytest collection. To reproduce from the
+product checkout after extracting that attachment:
+
+```bash
+PYTHONPATH=python python -m pytest test/segment_csr/arch35 test/segment_max_csr -q
+CSR_PRODUCT_ROOT="$PWD" PYTHONPATH=python python /path/to/evidence/validation_inputs/run_segment_csr_acceptance.py --all --warmup 20 --iter 100
+```
+
+The external driver uses `CSR_PRODUCT_ROOT` solely to locate product sources and
+binaries. Inputs, reference calculations, timing and the 0.45 threshold are retained.
+Profiler runs remain a separate diagnostic and do not replace interface timing.
+
+
 ## More Resources
 
 - **[Back to README](../../README_en.md)**

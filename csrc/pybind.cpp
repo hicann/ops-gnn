@@ -17,6 +17,7 @@
 #include "gather_csr/op_host/gather_csr.h"
 #include "random_walk/op_host/random_walk.h"
 #include "segment_max_csr/op_host/segment_max_csr.h"
+#include "segment_csr/op_host/segment_csr.h"
 #include "radius/op_host/radius.h"
 #include "graclus_cluster/op_host/graclus_cluster.h"
 #include "ind2ptr/op_host/ind2ptr.h"
@@ -25,6 +26,25 @@
 #endif
 
 namespace py = pybind11;
+
+#ifndef OPSGNN_DAV_2201
+namespace {
+void RegisterSegmentCsr(py::module_& module)
+{
+    module.def(
+        "segment_csr",
+        [](torch::Tensor src, torch::Tensor indptr, py::object outObject, const std::string& reduce) {
+            c10::optional<torch::Tensor> out = c10::nullopt;
+            if (!outObject.is_none()) {
+                out = outObject.cast<torch::Tensor>();
+            }
+            return ops_gnn::segment_csr(src, indptr, out, reduce);
+        },
+        py::arg("src"), py::arg("indptr"), py::arg("out") = py::none(), py::arg("reduce") = "sum",
+        "Reduce CSR segments with int64 pointers on the current NPU stream");
+}
+} // namespace
+#endif
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.doc() = "ops_gnn: NPU extension";
@@ -43,6 +63,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
           py::arg("out") = py::none(), "Gather CSR (NPU)");
     m.def("segment_max_csr", &opsgnn::segment_max_csr, py::arg("src"), py::arg("indptr"),
           py::arg("optional_out") = torch::Tensor(), "Segment max csr(NPU)");
+    RegisterSegmentCsr(m);
     m.def("radius", &opsgnn::radius_npu, py::arg("x"), py::arg("y"),
           py::arg("ptr_x") = py::none(), py::arg("ptr_y") = py::none(),
           py::arg("r"), py::arg("max_num_neighbors"),
