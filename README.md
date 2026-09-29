@@ -14,13 +14,13 @@ ops-gnn/
 ├── docs/                       # 文档目录（API 说明见 docs/*/api_reference.md）
 ├── python/                     # Python源码目录
 │   └── ops_gnn/                # Python包目录
-├── test/                       # 测试目录（按 arch 拆分：arch22 / arch35）
+├── test/                       # 测试目录（按 <算子>/<架构> 组织）
 ├── scripts/                    # 构建脚本目录
 │   └── build.sh                # 统一构建脚本
 ├── cmake/                      # CMake配置
 │   └── OpsGNNConfig.cmake.in
 ├── CMakeLists.txt              # CMake构建配置
-├── setup.py                    # Python安装脚本 (使用PyTorch cpp_extension)
+├── setup.py                    # Python 安装脚本（setuptools + CMake）
 ├── setup.cfg                   # setuptools配置
 ├── pyproject.toml              # 现代Python项目配置
 ├── MANIFEST.in                 # 打包清单
@@ -161,7 +161,8 @@ print(result.shape)  # torch.Size([4, 6, 64])
 | `ind2ptr` | 有序行索引转 CSR 行指针（对齐 torch_sparse） | NPU | [ind2ptr — 行索引转 CSR 行指针](docs/zh/api_reference.md#ind2ptr--行索引转-csr-行指针) |
 | `ptr2ind` | CSR 行指针转行索引（对齐 torch_sparse） | NPU | [ptr2ind — CSR 行指针转行索引](docs/zh/api_reference.md#ptr2ind--csr-行指针转行索引) |
 | `scatter` / `scatter_*` | 与 torch_scatter 对齐的索引分组归约 | NPU / CPU float64、int64 回退 | [scatter — Scatter 系列归约](docs/zh/api_reference.md#scatter--scatter-系列归约) |
-| `spmm_max_csr` | CSR 稀疏矩阵的最大值聚合 | NPU（A2/A3，arch22） | [spmm_max_csr — CSR 稀疏矩阵-向量最大聚合](docs/zh/api_reference.md#spmm_max_csr--csr-稀疏矩阵-向量最大聚合) |
+| `spmm` | CSR copy/binary 消息与 sum/max/min/mean 聚合 | NPU（A2/A3，arch22） | [spmm — 一维与二维 CSR 聚合](docs/zh/api_reference.md#spmm--csr-通用聚合) |
+| `bspmm` | 三维及更高维 CSR copy/binary 消息聚合 | NPU（A2/A3，arch22） | [bspmm — 高维 CSR 聚合](docs/zh/api_reference.md#bspmm--批量-csr-通用聚合) |
 
 ## 开发指南
 

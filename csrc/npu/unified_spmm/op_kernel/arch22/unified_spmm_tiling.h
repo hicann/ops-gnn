@@ -8,23 +8,25 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "spmm_max.h"
-#include "spmm_max/op_kernel/arch22/bspmm_max.h"
-#include "spmm_max/op_kernel/arch22/spmm_max.h"
+#pragma once
+#include <cstdint>
 
-#define OPSGNN_ENABLE_SPMM_HOST
-#include "common/spmm/spmm_utils.h"
+constexpr uint32_t UNIFIED_SPMM_DTYPE_FP32 = 0;
+constexpr uint32_t UNIFIED_SPMM_DTYPE_FP16 = 1;
+constexpr uint32_t UNIFIED_SPMM_REDUCE_SUM = 0;
+constexpr uint32_t UNIFIED_SPMM_REDUCE_MAX = 1;
+constexpr uint32_t UNIFIED_SPMM_REDUCE_MIN = 2;
+constexpr uint32_t UNIFIED_SPMM_COPY_LHS = 0;
+constexpr uint32_t UNIFIED_SPMM_COPY_RHS = 1;
 
-namespace opsgnn {
-
-torch::Tensor SpmmMaxCsr(const torch::Tensor& indptr,
-                             const torch::Tensor& indices,
-                             const torch::Tensor& x,
-                             const std::optional<torch::Tensor>& out)
-{
-    return ops_gnn::sparse::RunSpmmCopyLhs(
-        indptr, indices, x, out, "spmm_max_csr",
-        SpmmMax, BspmmMax);
-}
-
-}  // namespace opsgnn
+struct UnifiedSpmmTilingData {
+    uint32_t numDstRows;
+    uint32_t numFeatureRows;
+    uint32_t featureDim;
+    uint32_t nonZeroCount;
+    uint32_t ubBytes;
+    uint32_t dtype;
+    uint32_t reduce;
+    uint32_t message;
+    uint32_t hasNan;
+};

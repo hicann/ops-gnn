@@ -699,44 +699,67 @@ values, arg = ops_gnn.scatter_max(src, index)
 # arg:    tensor([2, 3], device='npu:0')
 ```
 
-### spmm_max_csr — CSR 稀疏矩阵-向量最大聚合
+### spmm — CSR 通用聚合
 
 ```python
-ops_gnn.spmm_max_csr(indptr, indices, x, out=None) -> Tensor
+ops_gnn.spmm(
+    indptr, indices, x=None, op="copy_lhs", reduce="sum",
+    out=None, rhs=None
+) -> Tensor
 ```
 
-仅前向的 `copy_lhs + max` 操作，作用于 CSR 的**行表示目标节点**。
-`indices[e]` 是边 `e` 的源节点。传统的源行 CSR 聚合方向相反，使用前必须先转置。
+使用 ops-gnn 自有 CSR Tensor 接口执行消息生成和目标行聚合，不依赖
+`DGLGraph`、`SparseMatrix` 或 DGL FFI。
 
-- `x`：`[K, N]`，float16，NPU 设备；`N > 0`。
-- `indptr`：`[M+1]`；`indices`：`[nnz]`，均为 int32 或 int64 且保持一致，与 `x` 位于同一 NPU 设备。
-- CSR 从 0 开始、到 nnz 结束，非递减，且源节点索引位于 `[0,K)` 内。
-- 返回 `[M,N]` 的 float16。空行为 0；无穷值被保留，任何参与的 NaN 会传播到对应输出特征。
-- 非连续输入会被转为连续。如果提供 `out`，它必须是连续的、形状/dtype/设备与输出一致，且与任何输入不共享存储。
-- 不支持自动求导；`x` 和 `out` 若需要梯度会被拒绝。
-- 无 CPU 回退、不支持其他归约、批量特征或其他特征 dtype。
+- `indptr`：目标行 CSR 指针，一维 NPU `int32` 或 `int64` Tensor。
+- `indices`：CSR 边对应的源节点索引，dtype 和设备与 `indptr` 相同。
+- `x`：源节点特征。`copy_rhs` 为兼容简写，也可以通过这里传入 CSR 顺序的边特征。
+- `rhs`：二元消息操作使用的 CSR 顺序边特征。
+- `op`：`copy_lhs`、`copy_rhs`、`add`、`sub`、`mul` 或 `div`。
+- `reduce`：`sum`、`max`、`min` 或 `mean`。
+- `out`：可选输出；输入需要梯度时不允许指定 `out`。
+
+`copy_lhs` 使用 `x[indices]`，`copy_rhs` 直接使用边特征；二元操作计算
+`op(x[indices], rhs)`，支持 PyTorch 广播。输入可以是一维标量特征或二维特征。
+空 CSR 行输出零。
 
 ```python
-import torch
-import torch_npu
-from ops_gnn import spmm_max_csr
+from ops_gnn import spmm
 
-# 目标节点 0 接收源节点 0 和 2；目标节点 1 为空。
-ptr = torch.tensor([0, 2, 2], dtype=torch.int64, device='npu')
-idx = torch.tensor([0, 2], dtype=torch.int64, device='npu')
-x = torch.tensor([[-2, 3], [7, 8], [-1, 2]], dtype=torch.float16, device='npu')
-y = spmm_max_csr(ptr, idx, x)  # [[-1, 3], [0, 0]]
+y = spmm(ptr, idx, node_features, reduce="sum")
+y = spmm(ptr, idx, node_features, rhs=edge_features,
+         op="mul", reduce="mean")
 ```
 
-内核在当前 PyTorch NPU 流上运行。标量 CSR 校验和 NaN 检测会同步；实现不会将 CSR 数组下载到主机。
-含 NaN 的输入会额外执行一次设备端标量扫描以保证 NaN 传播，可能更慢。端到端基准测试包含这些开销和 int64 转换。
+不需要梯度且形状、dtype 满足 Kernel 条件的 `copy_lhs/copy_rhs + sum/max/min`
+优先使用迁移的 NPU Kernel；二元消息、`mean`、高维特征和需要梯度的调用使用
+可求导的 NPU Tensor 组合实现。`copy_rhs` 仅支持 float32；其他路径支持 float16
+和 float32。
 
-当设备 UB 容量为 `U` 字节时，最大特征维度为
-`16 * floor((U - 2048) / 128)`：需要容纳两个累加缓冲区和两个特征缓冲区。
-维度与地址字节跨度必须能放入 uint32；更大的输入会报错，实际上限包含在异常信息中。特征不做分块。
+### bspmm — 批量 CSR 通用聚合
 
-源码路由使用 `op_kernel/arch22`；编译仍以 `NPU_ARCH` 决定实际设备。
-硬件支持需要在目标设备上验证通过。
+```python
+ops_gnn.bspmm(
+    indptr, indices, x=None, op="copy_lhs", reduce="sum",
+    out=None, rhs=None
+) -> Tensor
+```
+
+`bspmm` 与 `spmm` 支持相同的消息操作、归约、广播和 autograd。节点或边特征中
+至少一个必须为三维或更高维。二元操作在数量维之后插入值为 1 的维度以对齐
+特征 rank，再执行 PyTorch 广播；输出保留广播后的全部尾部特征维。三维 FP16
+`copy_lhs + sum/max/min` 使用迁移的 BSpMM Kernel，更高维及其他组合由 NPU
+Tensor 运算完成。
+
+```python
+from ops_gnn import bspmm
+
+# node_features: [K, 3, 1]，edge_features: [nnz, 2, 3, 4]
+y = bspmm(ptr, idx, node_features, rhs=edge_features,
+          op="mul", reduce="mean")
+# y: [M, 2, 3, 4]
+```
+
 
 ## 三、测试指南
 
@@ -747,6 +770,10 @@ y = spmm_max_csr(ptr, idx, x)  # [[-1, 3], [0, 0]]
 pytest test/ -v
 
 # 运行单个算子测试（950 上为 arch35，A2/A3 上为 arch22）
+pytest test/spmm_max/arch22/test_spmm_max.py -v
+pytest test/spmm_min/arch22/test_spmm_min.py -v
+pytest test/spmm_sum/arch22/test_spmm_sum.py -v
+pytest test/unified_spmm/arch22/test_unified_spmm.py -v
 pytest test/gather_csr/arch35/test_gather_csr.py -v
 pytest test/segment_max_csr/arch35/test_segment_max_csr.py -v
 pytest test/graclus_cluster/arch35/test_graclus_cluster.py -v
@@ -757,6 +784,17 @@ pytest test/sparse/arch35/test_sparse.py -v
 
 # 运行 random_walk 性能测试
 NPU_DEVICE_ID=<device_id> python test/random_walk/arch35/benchmark_random_walk.py
+
+# 运行 SpMM 性能测试
+NPU_DEVICE_ID=<device_id> python test/spmm_max/arch22/benchmark_spmm_max.py
+NPU_DEVICE_ID=<device_id> python test/spmm_min/arch22/benchmark_spmm_min.py
+NPU_DEVICE_ID=<device_id> python test/spmm_sum/arch22/benchmark_spmm_sum.py
+# 三维 BSpMM 示例；max/min 脚本同样支持 --batches
+NPU_DEVICE_ID=<device_id> python test/spmm_sum/arch22/benchmark_spmm_sum.py --batches 4
+NPU_DEVICE_ID=<device_id> python test/unified_spmm/arch22/benchmark_unified_spmm.py
+# 高维二元广播：[N,3,1] 与 [E,2,3,4] 聚合为 [M,2,3,4]
+NPU_DEVICE_ID=<device_id> python test/unified_spmm/arch22/benchmark_unified_spmm.py \
+  --op mul --reduce mean --lhs-shape 3,1 --rhs-shape 2,3,4
 
 # 运行 radius 官方标杆性能测试
 python test/radius/arch35/benchmark_radius.py

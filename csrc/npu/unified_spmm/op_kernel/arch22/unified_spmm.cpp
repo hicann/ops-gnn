@@ -8,23 +8,18 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "spmm_max.h"
-#include "spmm_max/op_kernel/arch22/bspmm_max.h"
-#include "spmm_max/op_kernel/arch22/spmm_max.h"
-
-#define OPSGNN_ENABLE_SPMM_HOST
-#include "common/spmm/spmm_utils.h"
+#include "unified_spmm_kernel.h"
+#include "unified_spmm.h"
 
 namespace opsgnn {
 
-torch::Tensor SpmmMaxCsr(const torch::Tensor& indptr,
-                             const torch::Tensor& indices,
-                             const torch::Tensor& x,
-                             const std::optional<torch::Tensor>& out)
+void UnifiedSpmm(uint32_t blocks, aclrtStream stream, void* x, void* out,
+                 void* ptr, void* idx, void* split, void* tiling)
 {
-    return ops_gnn::sparse::RunSpmmCopyLhs(
-        indptr, indices, x, out, "spmm_max_csr",
-        SpmmMax, BspmmMax);
+    unified_spmm<<<blocks, nullptr, stream>>>(static_cast<uint8_t*>(x),
+        static_cast<uint8_t*>(out), static_cast<uint8_t*>(ptr),
+        static_cast<uint8_t*>(idx), static_cast<uint8_t*>(split),
+        static_cast<uint8_t*>(tiling));
 }
 
 }  // namespace opsgnn

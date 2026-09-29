@@ -8,23 +8,9 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "spmm_max.h"
-#include "spmm_max/op_kernel/arch22/bspmm_max.h"
-#include "spmm_max/op_kernel/arch22/spmm_max.h"
+#pragma once
 
-#define OPSGNN_ENABLE_SPMM_HOST
+#define OPSGNN_ENABLE_SPMM_KERNEL
 #include "common/spmm/spmm_utils.h"
 
-namespace opsgnn {
-
-torch::Tensor SpmmMaxCsr(const torch::Tensor& indptr,
-                             const torch::Tensor& indices,
-                             const torch::Tensor& x,
-                             const std::optional<torch::Tensor>& out)
-{
-    return ops_gnn::sparse::RunSpmmCopyLhs(
-        indptr, indices, x, out, "spmm_max_csr",
-        SpmmMax, BspmmMax);
-}
-
-}  // namespace opsgnn
+OPSGNN_DEFINE_BSPMM_KERNEL(bspmm_sum, ops_gnn::sparse::SpmmReduce::SUM)

@@ -15,8 +15,8 @@ import torch
 
 import conftest as test_support
 
-spmm_max_reference = runpy.run_path(Path(__file__).with_name("golden.py"))[
-    "spmm_max_reference"]
+
+spmm_min_reference = runpy.run_path(Path(__file__).with_name("golden.py"))["spmm_min_reference"]
 
 
 @pytest.fixture
@@ -27,27 +27,26 @@ def op():
     torch.npu.set_device(int(os.environ.get("NPU_DEVICE_ID", "0")))
     from ops_gnn import spmm
     return lambda indptr, indices, x, out=None: spmm(
-        indptr, indices, x, reduce="max", out=out)
+        indptr, indices, x, reduce="min", out=out)
 
 
 def test_reference():
-    x = torch.tensor([[-float("inf"), -2], [-3, float("nan")]], dtype=torch.float16)
-    p, i = torch.tensor([0, 0, 1, 3, 3]), torch.tensor([0, 0, 1])
-    expected = torch.tensor([[0, 0], [-float("inf"), -2], [-3, float("nan")], [0, 0]],
-                            dtype=torch.float16)
-    torch.testing.assert_close(spmm_max_reference(p, i, x), expected, equal_nan=True)
+    x = torch.tensor([[float("inf"), -2], [-3, float("nan")]], dtype=torch.float16)
+    ptr = torch.tensor([0, 0, 1, 3, 3])
+    idx = torch.tensor([0, 0, 1])
+    expected = torch.tensor([[0, 0], [float("inf"), -2],
+                             [-3, float("nan")], [0, 0]], dtype=torch.float16)
+    torch.testing.assert_close(spmm_min_reference(ptr, idx, x), expected, equal_nan=True)
 
 
 @pytest.mark.parametrize("n", [1, 15, 16, 17, 31, 32, 33, 127, 1024])
 @pytest.mark.parametrize("dtype", [torch.int32, torch.int64])
 def test_features(op, n, dtype):
-    p = torch.tensor([0, 0, 3, 3, 4, 7, 7], dtype=dtype)
-    i = torch.tensor([0, 2, 0, 1, 3, 1, 2], dtype=dtype)
-    x = -torch.rand(4, n, dtype=torch.float16)
-    expected = spmm_max_reference(p, i, x)
-    got = op(p.npu(), i.npu(), x.npu())
-    torch.testing.assert_close(got.cpu(), expected, rtol=0, atol=0)
-    torch.testing.assert_close(expected, spmm_max_reference(p, i, x, fp32=False))
+    ptr = torch.tensor([0, 0, 3, 4], dtype=dtype)
+    idx = torch.tensor([0, 2, 1, 2], dtype=dtype)
+    x = torch.arange(3 * n, dtype=torch.float16).reshape(3, n) - 20
+    expected = spmm_min_reference(ptr, idx, x)
+    torch.testing.assert_close(op(ptr.npu(), idx.npu(), x.npu()).cpu(), expected, rtol=0, atol=0)
 
 
 @pytest.mark.parametrize("m,k", [(0, 0), (0, 2), (1, 0), (5, 0), (5, 2)])
@@ -55,41 +54,36 @@ def test_empty(op, m, k):
     test_support.assert_empty_case(op, m, k)
 
 
-def test_special_values(op):
-    x = torch.tensor([[-float("inf"), -65504, float("nan"), 1, -2],
-                      [-float("inf"), float("inf"), 4, float("nan"), -1]], dtype=torch.float16)
-    # Test both NaN ordering directions and repeated edges.
-    p, i = torch.tensor([0, 2, 4, 5]), torch.tensor([0, 1, 1, 0, 0])
-    torch.testing.assert_close(op(p.npu(), i.npu(), x.npu()).cpu(),
-                               spmm_max_reference(p, i, x), equal_nan=True, rtol=0, atol=0)
+def test_special_values_and_out(op):
+    test_support.assert_special_values_and_out(op, spmm_min_reference)
 
 
 def test_strides_out_and_repetition(op):
-    p = torch.tensor([0, 99, 2, 99, 3, 99], device="npu")[::2]
-    i = torch.tensor([0, 99, 1, 99, 0, 99], device="npu")[::2]
+    ptr = torch.tensor([0, 99, 2, 99, 3, 99], device="npu")[::2]
+    idx = torch.tensor([0, 99, 1, 99, 0, 99], device="npu")[::2]
     x = torch.randn(17, 2, device="npu", dtype=torch.float16).t()
     out = torch.empty(2, 17, device="npu", dtype=torch.float16)
-    expected = spmm_max_reference(p.cpu(), i.cpu(), x.cpu())
-    for _ in range(100):
-        got = op(p, i, x, out)
+    expected = spmm_min_reference(ptr.cpu(), idx.cpu(), x.cpu())
+    for _ in range(10):
+        got = op(ptr, idx, x, out)
         assert got.data_ptr() == out.data_ptr()
         torch.testing.assert_close(got.cpu(), expected, rtol=0, atol=0)
     with pytest.raises(RuntimeError, match="contiguous"):
-        op(p, i, x, torch.empty(17, 2, device="npu", dtype=torch.float16).t())
+        op(ptr, idx, x, torch.empty(17, 2, device="npu", dtype=torch.float16).t())
 
 
 def test_multiple_batches(op):
     torch.manual_seed(42)
-    p = torch.tensor([0, 10001, 10001, 10002])
-    i = torch.randint(0, 32, (10002,))
+    ptr = torch.tensor([0, 10001, 10001, 10002])
+    idx = torch.randint(0, 32, (10002,))
     x = torch.randn(32, 33, dtype=torch.float16)
-    torch.testing.assert_close(op(p.npu(), i.npu(), x.npu()).cpu(),
-                               spmm_max_reference(p, i, x), rtol=0, atol=0)
+    torch.testing.assert_close(op(ptr.npu(), idx.npu(), x.npu()).cpu(),
+                               spmm_min_reference(ptr, idx, x), rtol=0, atol=0)
 
 
-@pytest.mark.parametrize("p,i", test_support.SPMM_BAD_CSR_CASES)
-def test_bad_csr(op, p, i):
-    test_support.assert_bad_csr(op, p, i)
+@pytest.mark.parametrize("ptr,idx", test_support.SPMM_BAD_CSR_CASES)
+def test_bad_csr(op, ptr, idx):
+    test_support.assert_bad_csr(op, ptr, idx)
 
 
 @pytest.mark.parametrize("case", test_support.SPMM_BAD_METADATA_CASES)
@@ -100,7 +94,7 @@ def test_bad_metadata(op, case):
 @pytest.mark.parametrize("dtype", [torch.int32, torch.int64])
 @pytest.mark.parametrize("batches,features", test_support.SPMM_BATCH_CASES)
 def test_bspmm(dtype, batches, features):
-    test_support.assert_bspmm_case("max", spmm_max_reference, (dtype, batches, features), (0, 0))
+    test_support.assert_bspmm_case("min", spmm_min_reference, (dtype, batches, features), (0, 0))
 
 
 def test_bspmm_empty_batch():
@@ -108,12 +102,12 @@ def test_bspmm_empty_batch():
     ptr = torch.tensor([0, 0, 0], device="npu")
     idx = torch.empty(0, dtype=torch.int64, device="npu")
     x = torch.empty((4, 0, 17), dtype=torch.float16, device="npu")
-    got = bspmm(ptr, idx, x, reduce="max")
+    got = bspmm(ptr, idx, x, reduce="min")
     assert got.shape == (2, 0, 17)
 
 
 def test_bspmm_special_values():
-    test_support.assert_bspmm_special_values("max", spmm_max_reference, 0, 0)
+    test_support.assert_bspmm_special_values("min", spmm_min_reference, 0, 0)
 
 
 def test_stream(op):
@@ -121,10 +115,9 @@ def test_stream(op):
 
 
 def test_ub_boundary(op):
-    # Discover the device-specific boundary using the public validation error.
     test_support.assert_ub_boundary(op)
 
 
 @pytest.mark.parametrize("dtype", [torch.int32, torch.int64])
 def test_large_random_graph_reference(op, dtype):
-    test_support.assert_large_random_graph(op, spmm_max_reference, dtype, 0, 0)
+    test_support.assert_large_random_graph(op, spmm_min_reference, dtype, 0, 0)

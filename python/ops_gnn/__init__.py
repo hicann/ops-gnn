@@ -32,8 +32,12 @@ except (ImportError, OSError) as exc:
     ) from exc
 
 if _pybind.npu_arch == 'dav-2201':
-    from .spmm_max import spmm_max_csr
-    __all__ = ['spmm_max_csr']
+    from .bspmm import bspmm
+    from .spmm import spmm
+    __all__ = [
+        'spmm',
+        'bspmm',
+    ]
 else:
     from .gather_csr import gather_csr
     from .graclus_cluster import graclus_cluster

@@ -229,7 +229,7 @@ Key CMake variables:
 # Run all functional tests for the local chip model (950→arch35, A2/A3→arch22)
 pytest test/ -v
 # Or target a directory directly
-pytest test/ -v
+pytest test/spmm_max/arch22/test_spmm_max.py -v                       # One arch22 operator
 pytest test/segment_max_csr/arch35/test_segment_max_csr.py -v             # Single operator test
 pytest test/segment_max_csr/arch35/test_segment_max_csr.py::test_func -v  # Single test case
 ```

@@ -12,6 +12,9 @@
 #include <pybind11/pybind11.h>
 #ifdef OPSGNN_DAV_2201
 #include "spmm_max/op_host/spmm_max.h"
+#include "spmm_min/op_host/spmm_min.h"
+#include "spmm_sum/op_host/spmm_sum.h"
+#include "unified_spmm/op_host/unified_spmm.h"
 #else
 #include "gather_coo/op_host/gather_coo.h"
 #include "gather_csr/op_host/gather_csr.h"
@@ -27,8 +30,9 @@
 
 namespace py = pybind11;
 
-#ifndef OPSGNN_DAV_2201
 namespace {
+
+#ifndef OPSGNN_DAV_2201
 void RegisterSegmentCsr(py::module_& module)
 {
     module.def(
@@ -43,16 +47,24 @@ void RegisterSegmentCsr(py::module_& module)
         py::arg("src"), py::arg("indptr"), py::arg("out") = py::none(), py::arg("reduce") = "sum",
         "Reduce CSR segments with int64 pointers on the current NPU stream");
 }
-} // namespace
 #endif
-
-PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-    m.doc() = "ops_gnn: NPU extension";
 #ifdef OPSGNN_DAV_2201
+void BindArch22(py::module_& m)
+{
     m.attr("npu_arch") = "dav-2201";
     m.def("spmm_max_csr", &opsgnn::SpmmMaxCsr, py::arg("indptr"), py::arg("indices"),
           py::arg("x"), py::arg("out") = py::none(), "CSR SpMM max on Ascend NPU");
+    m.def("spmm_min_csr", &opsgnn::SpmmMinCsr, py::arg("indptr"), py::arg("indices"),
+          py::arg("x"), py::arg("out") = py::none(), "CSR SpMM min on Ascend NPU");
+    m.def("spmm_sum_csr", &opsgnn::SpmmSumCsr, py::arg("indptr"), py::arg("indices"),
+          py::arg("x"), py::arg("out") = py::none(), "CSR SpMM sum on Ascend NPU");
+    m.def("unified_spmm_csr", &opsgnn::UnifiedSpmmCsr, py::arg("indptr"), py::arg("indices"),
+          py::arg("x"), py::arg("op") = "copy_lhs", py::arg("reduce") = "sum",
+          py::arg("out") = py::none(), "Unified two-dimensional CSR SpMM on Ascend NPU");
+}
 #else
+void BindArch35(py::module_& m)
+{
     m.attr("npu_arch") = "dav-3510";
     m.def("random_walk", &opsgnn::random_walk_npu,
           py::arg("rowptr"), py::arg("col"), py::arg("start"), py::arg("walk_length"),
@@ -93,5 +105,17 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.def("scatter_forward", &opsgnn::scatter_forward, py::arg("src"), py::arg("index"),
           py::arg("dim"), py::arg("out"), py::arg("reduce"), py::arg("has_out"),
           py::arg("hot_target") = -1, "torch_scatter-compatible forward reduction(NPU)");
+}
+#endif
+
+} // namespace
+
+PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
+{
+    m.doc() = "ops_gnn: NPU extension";
+#ifdef OPSGNN_DAV_2201
+    BindArch22(m);
+#else
+    BindArch35(m);
 #endif
 }

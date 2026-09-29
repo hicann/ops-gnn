@@ -713,50 +713,71 @@ values, arg = ops_gnn.scatter_max(src, index)
 # arg:    tensor([2, 3], device='npu:0')
 ```
 
-### spmm_max_csr — CSR Sparse Matrix-Vector Max Aggregation
+### spmm — General CSR Aggregation
 
 ```python
-ops_gnn.spmm_max_csr(indptr, indices, x, out=None) -> Tensor
+ops_gnn.spmm(
+    indptr, indices, x=None, op="copy_lhs", reduce="sum",
+    out=None, rhs=None
+) -> Tensor
 ```
 
-Forward-only `copy_lhs + max` over CSR **rows representing destination nodes**.
-`indices[e]` is the source node of edge `e`. A conventional source-row CSR
-aggregates in the opposite direction and must be transposed before use.
+Runs message generation and destination-row aggregation through ops-gnn CSR
+tensors without depending on `DGLGraph`, `SparseMatrix`, or the DGL FFI.
 
-- `x`: `[K, N]`, float16, NPU; `N > 0`.
-- `indptr`: `[M+1]`; `indices`: `[nnz]`, matching int32 or int64, same NPU as `x`.
-- CSR starts at zero, ends at nnz, is non-decreasing, and source indices lie in `[0,K)`.
-- Returns `[M,N]` float16. Empty rows are zero; infinities are preserved and any
-  contributing NaN propagates to that output feature.
-- Noncontiguous inputs are made contiguous. `out`, if supplied, must be contiguous,
-  match shape/dtype/device, and share no storage with any input.
-- Autograd is unsupported; `x` and `out` requiring gradients are rejected.
-- No CPU fallback, other reductions, batched features or other feature dtypes.
+- `indptr`: one-dimensional NPU `int32` or `int64` destination-row pointer.
+- `indices`: source indices in CSR edge order, with the same dtype and device.
+- `x`: source features. As a shorthand, `copy_rhs` may receive CSR-ordered edge features here.
+- `rhs`: CSR-ordered edge features used by binary message operations.
+- `op`: `copy_lhs`, `copy_rhs`, `add`, `sub`, `mul`, or `div`.
+- `reduce`: `sum`, `max`, `min`, or `mean`.
+- `out`: optional output; it cannot be supplied when a feature requires gradients.
+
+`copy_lhs` uses `x[indices]`, while `copy_rhs` uses edge features directly.
+Binary operations compute `op(x[indices], rhs)` with PyTorch broadcasting.
+Features may be one-dimensional scalars or two-dimensional tensors. Empty CSR
+rows produce zero.
 
 ```python
-import torch
-import torch_npu
-from ops_gnn import spmm_max_csr
+from ops_gnn import spmm
 
-# Destination 0 receives sources 0 and 2; destination 1 is empty.
-ptr = torch.tensor([0, 2, 2], dtype=torch.int64, device='npu')
-idx = torch.tensor([0, 2], dtype=torch.int64, device='npu')
-x = torch.tensor([[-2, 3], [7, 8], [-1, 2]], dtype=torch.float16, device='npu')
-y = spmm_max_csr(ptr, idx, x)  # [[-1, 3], [0, 0]]
+y = spmm(ptr, idx, node_features, reduce="sum")
+y = spmm(ptr, idx, node_features, rhs=edge_features,
+         op="mul", reduce="mean")
 ```
 
-The kernel runs on the current PyTorch NPU stream. Scalar CSR validation and NaN
-presence checks synchronize; the implementation does not download CSR arrays.
-NaN-containing input uses an additional device scalar scan to guarantee propagation,
-which may be slower. End-to-end benchmarks include these costs and int64 conversion.
+No-gradient `copy_lhs/copy_rhs + sum/max/min` calls whose shapes and dtypes
+match a kernel path use the migrated NPU kernels. Binary messages, `mean`,
+higher-rank features, and calls requiring gradients use differentiable NPU
+tensor operations. `copy_rhs` supports float32; the other paths support float16
+and float32.
 
-With device UB capacity `U` bytes, the maximum feature dimension is
-`16 * floor((U - 2048) / 128)`: two accumulation and two feature buffers must fit.
-Dimensions and address byte spans must fit uint32; a larger input raises an error.
-The actual limit is included in the exception. Features are not tiled.
+### bspmm — General Batched CSR Aggregation
 
-Source routing uses `op_kernel/arch22`; compilation still uses `NPU_ARCH` for the
-actual device. Hardware support requires successful validation on that target.
+```python
+ops_gnn.bspmm(
+    indptr, indices, x=None, op="copy_lhs", reduce="sum",
+    out=None, rhs=None
+) -> Tensor
+```
+
+`bspmm` supports the same message operations, reductions, broadcasting, and
+autograd as `spmm`. At least one node or edge feature tensor must have rank
+three or higher. For binary operations, missing feature dimensions are inserted
+after the item axis before PyTorch broadcasting, and the output retains every
+broadcast trailing dimension. Rank-3 FP16 `copy_lhs + sum/max/min` calls use the
+migrated BSpMM kernels; higher-rank and other combinations use NPU tensor
+operations.
+
+```python
+from ops_gnn import bspmm
+
+# node_features: [K, 3, 1], edge_features: [nnz, 2, 3, 4]
+y = bspmm(ptr, idx, node_features, rhs=edge_features,
+          op="mul", reduce="mean")
+# y: [M, 2, 3, 4]
+```
+
 
 ## Testing Guide
 
@@ -767,6 +788,10 @@ actual device. Hardware support requires successful validation on that target.
 pytest test/ -v
 
 # Run single operator test (arch35 on 950, arch22 on A2/A3)
+pytest test/spmm_max/arch22/test_spmm_max.py -v
+pytest test/spmm_min/arch22/test_spmm_min.py -v
+pytest test/spmm_sum/arch22/test_spmm_sum.py -v
+pytest test/unified_spmm/arch22/test_unified_spmm.py -v
 pytest test/gather_csr/arch35/test_gather_csr.py -v
 pytest test/segment_max_csr/arch35/test_segment_max_csr.py -v
 pytest test/graclus_cluster/arch35/test_graclus_cluster.py -v
@@ -777,6 +802,17 @@ pytest test/sparse/arch35/test_sparse.py -v
 
 # Run the random_walk performance benchmark
 NPU_DEVICE_ID=<device_id> python test/random_walk/arch35/benchmark_random_walk.py
+
+# Run SpMM performance benchmarks
+NPU_DEVICE_ID=<device_id> python test/spmm_max/arch22/benchmark_spmm_max.py
+NPU_DEVICE_ID=<device_id> python test/spmm_min/arch22/benchmark_spmm_min.py
+NPU_DEVICE_ID=<device_id> python test/spmm_sum/arch22/benchmark_spmm_sum.py
+# 3D BSpMM example; the max/min scripts also accept --batches
+NPU_DEVICE_ID=<device_id> python test/spmm_sum/arch22/benchmark_spmm_sum.py --batches 4
+NPU_DEVICE_ID=<device_id> python test/unified_spmm/arch22/benchmark_unified_spmm.py
+# Higher-rank binary broadcast: [N,3,1] and [E,2,3,4] reduce to [M,2,3,4]
+NPU_DEVICE_ID=<device_id> python test/unified_spmm/arch22/benchmark_unified_spmm.py \
+  --op mul --reduce mean --lhs-shape 3,1 --rhs-shape 2,3,4
 
 # Run the radius official-baseline performance benchmark
 python test/radius/arch35/benchmark_radius.py

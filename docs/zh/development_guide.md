@@ -122,7 +122,7 @@ ops-gnn
 ├── docs/                           # 文档目录（API 说明见 docs/*/api_reference.md）
 ├── python/                         # Python 源码目录
 │   └── ops_gnn/                    # Python 包目录
-├── test/                           # 测试目录（按 arch 拆分：arch22 / arch35）
+├── test/                           # 测试目录（按 <算子>/<架构> 组织）
 ├── scripts/                        # 构建脚本目录
 │   └── build.sh                    # 统一构建/测试脚本（python/cpp/all/test）
 ├── cmake/                          # CMake 配置
@@ -226,7 +226,7 @@ CMakeLists.txt 负责编译 AscendC Kernel 和 PyTorch 绑定库：
 # 运行当前机器芯片型号对应的所有功能测试（950→arch35，A2/A3→arch22）
 pytest test/ -v
 # 或直接指定目录
-pytest test/ -v
+pytest test/spmm_max/arch22/test_spmm_max.py -v                       # arch22 单个算子测试
 pytest test/segment_max_csr/arch35/test_segment_max_csr.py -v             # 单个算子测试
 pytest test/segment_max_csr/arch35/test_segment_max_csr.py::test_func -v  # 单个测试用例
 ```

@@ -10,15 +10,15 @@
 import torch
 
 
-def spmm_max_reference(indptr, indices, x, fp32=True):
-    """Compute 2D SpMM or 3D BSpMM copy_lhs + max."""
+def spmm_min_reference(indptr, indices, x, fp32=True):
+    """Compute 2D SpMM or 3D BSpMM copy_lhs + min."""
     m, feature_shape = indptr.numel() - 1, tuple(x.shape[1:])
     flat = x.reshape(x.size(0), -1)
     degrees = (indptr[1:] - indptr[:-1]).long()
     rows = torch.repeat_interleave(torch.arange(m, device=x.device), degrees)
     values = flat.float() if fp32 else flat
-    result = torch.full((m, flat.size(1)), -float("inf"), dtype=values.dtype, device=x.device)
+    result = torch.full((m, flat.size(1)), float("inf"), dtype=values.dtype, device=x.device)
     result.scatter_reduce_(0, rows[:, None].expand(-1, flat.size(1)),
-                           values[indices.long()], reduce="amax", include_self=True)
+                           values[indices.long()], reduce="amin", include_self=True)
     result[degrees == 0] = 0
     return result.reshape((m,) + feature_shape).to(x.dtype)

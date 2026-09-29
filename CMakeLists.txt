@@ -252,37 +252,54 @@ message(STATUS "Found Torch NPU: ${TORCH_NPU_INSTALL_PREFIX}")
 # Source Files
 ###############################################################################
 
-file(GLOB_RECURSE NPU_ARCH22_FILES
-    csrc/npu/*/op_kernel/arch22/*.asc
-    csrc/npu/*/op_kernel/arch22/*.cpp
-)
-file(GLOB_RECURSE NPU_ARCH22_HEADERS
-    csrc/npu/*/op_kernel/arch22/*.h
-)
-file(GLOB_RECURSE NPU_ARCH35_FILES
-    csrc/npu/*/op_kernel/arch35/*.asc
-    csrc/npu/*/op_kernel/arch35/*.cpp
-)
-file(GLOB_RECURSE NPU_ARCH35_HEADERS
-    csrc/npu/*/op_kernel/arch35/*.h
-)
+function(collect_npu_arch_sources ARCH_NAME OUT_KERNEL_FILES OUT_KERNEL_HEADERS OUT_HOST_FILES)
+    file(GLOB_RECURSE ARCH_KERNEL_FILES
+        CONFIGURE_DEPENDS
+        csrc/npu/*/op_kernel/${ARCH_NAME}/*.asc
+        csrc/npu/*/op_kernel/${ARCH_NAME}/*.cpp
+    )
+    file(GLOB_RECURSE ARCH_KERNEL_HEADERS
+        CONFIGURE_DEPENDS
+        csrc/npu/*/op_kernel/${ARCH_NAME}/*.h
+    )
+    file(GLOB ARCH_KERNEL_DIRS
+        CONFIGURE_DEPENDS
+        LIST_DIRECTORIES true
+        csrc/npu/*/op_kernel/${ARCH_NAME}
+    )
+
+    set(ARCH_HOST_FILES)
+    foreach(KERNEL_DIR IN LISTS ARCH_KERNEL_DIRS)
+        get_filename_component(OP_KERNEL_DIR "${KERNEL_DIR}" DIRECTORY)
+        get_filename_component(OPERATOR_DIR "${OP_KERNEL_DIR}" DIRECTORY)
+        file(GLOB OPERATOR_HOST_FILES
+            CONFIGURE_DEPENDS
+            "${OPERATOR_DIR}/op_host/*.cpp"
+        )
+        list(APPEND ARCH_HOST_FILES ${OPERATOR_HOST_FILES})
+    endforeach()
+    list(REMOVE_DUPLICATES ARCH_HOST_FILES)
+
+    set(${OUT_KERNEL_FILES} ${ARCH_KERNEL_FILES} PARENT_SCOPE)
+    set(${OUT_KERNEL_HEADERS} ${ARCH_KERNEL_HEADERS} PARENT_SCOPE)
+    set(${OUT_HOST_FILES} ${ARCH_HOST_FILES} PARENT_SCOPE)
+endfunction()
+
+collect_npu_arch_sources(
+    arch22 NPU_ARCH22_FILES NPU_ARCH22_HEADERS NPU_ARCH22_HOST_FILES)
+collect_npu_arch_sources(
+    arch35 NPU_ARCH35_FILES NPU_ARCH35_HEADERS NPU_ARCH35_HOST_FILES)
 
 if(NPU_ARCH STREQUAL "dav-2201")
-    # A2(910B)/A3(910C): 只编译 arch22 算子（spmm_max）
+    # A2(910B)/A3(910C): 只编译 arch22 算子
     set(NPU_ASC_FILES ${NPU_ARCH22_FILES})
     set(NPU_KERNEL_HEADERS ${NPU_ARCH22_HEADERS})
-    set(NPU_CPP_INTERFACE_FILES
-        csrc/npu/spmm_max/op_host/spmm_max.cpp
-    )
+    set(NPU_CPP_INTERFACE_FILES ${NPU_ARCH22_HOST_FILES})
 else()
     # 950: 只编译 arch35 算子
     set(NPU_ASC_FILES ${NPU_ARCH35_FILES})
     set(NPU_KERNEL_HEADERS ${NPU_ARCH35_HEADERS})
-    file(GLOB_RECURSE NPU_CPP_INTERFACE_FILES
-        csrc/npu/*/op_host/*.cpp
-    )
-    # 排除 arch22 算子（spmm_max）的 host 接口，950 上不编译
-    list(FILTER NPU_CPP_INTERFACE_FILES EXCLUDE REGEX ".*/spmm_max/op_host/.*")
+    set(NPU_CPP_INTERFACE_FILES ${NPU_ARCH35_HOST_FILES})
 endif()
 
 set(OPERATOR_SOURCES

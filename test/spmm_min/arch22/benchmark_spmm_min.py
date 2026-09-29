@@ -6,23 +6,12 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 
-def test_import():
-    """测试基本导入"""
-    import ops_gnn
+"""Run the shared copy_lhs SpMM benchmark for this reduction."""
+import runpy
+from pathlib import Path
 
-    assert (
-        (
-            hasattr(ops_gnn, 'spmm')
-            and hasattr(ops_gnn, 'bspmm')
-        )
-        or (
-            hasattr(ops_gnn, 'graclus_cluster')
-            and hasattr(ops_gnn, 'gather_coo')
-        )
-    )
+_SUPPORT = runpy.run_path(str(Path(__file__).parents[2] / "conftest.py"))
 
 
-def test_version():
-    """测试版本号"""
-    import ops_gnn
-    assert ops_gnn.__version__ == '0.1.0'
+if __name__ == "__main__":
+    _SUPPORT["run_spmm_benchmark"]("min")
