@@ -65,6 +65,7 @@ else:
         segment_max_csr,
     )
     from .radius import radius, radius_graph
+    from .nearest import nearest
     from .typing import Tensor, OptTensor
 
     __all__ = [
@@ -91,6 +92,7 @@ else:
         'ptr2ind',
         'radius',
         'radius_graph',
+        'nearest',
         'Tensor',
         'OptTensor',
     ]

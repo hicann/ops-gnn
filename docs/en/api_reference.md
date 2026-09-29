@@ -26,6 +26,47 @@ Optional Tensor type for parameters that may have default values. `None` is repr
 
 ## Core Operator APIs
 
+### nearest — Batched Nearest Neighbor Indices
+
+```python
+def nearest(x: Tensor, y: Tensor,
+            batch_x: Optional[Tensor] = None,
+            batch_y: Optional[Tensor] = None) -> Tensor:
+```
+
+On Ascend 950 (arch35), return the global int64 index of the nearest y point in the same batch for each x point. The output has shape [N]. Inputs share an NPU and float16/float32 dtype, with shapes [N,F]/[M,F]; 1-D inputs use F=1. Both dtypes use FP32 distance arithmetic and choose the smallest global y index on ties.
+
+Optional batches are nonnegative sorted 1-D int64 labels of length N/M on the input device, with matching nonempty label sets; an omitted batch means zero. Invalid batches raise ValueError. Noncontiguous inputs are supported. Empty x without batches returns an empty output; nonempty x with empty y is rejected. NaN/Inf coordinates and F=0 are rejected.
+
+```python
+x = torch.tensor([[0., 0., 0.], [9., 0., 0.]], device="npu")
+y = torch.tensor([[1., 0., 0.], [10., 0., 0.]], device="npu")
+indices = ops_gnn.nearest(x, y)  # tensor([0, 1], device='npu:0')
+```
+
+Computation uses an Ascend C kernel registered at torch.ops.torch_cluster.nearest. No CPU/scipy fallback or gradients are provided. N, M and F must not exceed INT32_MAX and are limited by available memory. Public API validation includes synchronization; the kernel uses the current NPU stream. If torch_cluster is installed, import it first to provide the schema.
+
+The fixed precision reference is SciPy 1.18.0 / OpenBLAS 0.3.31.dev SkylakeX. A different CPU, BLAS or matrix partition may change integer reference indices for nearly tied candidates. Accuracy is not guaranteed for extreme FP32 coordinates that overflow intermediate distances.
+
+Tests in `test/nearest/arch35/` have two entry points and share the reference helper `golden.py`:
+
+- Functional tests: `test_nearest.py` contains 338 cases: the 42 task-attachment cases and 296 supplemental cases covering functionality, FP16, reconstructed acceptance logs, 108 numerical stress cases and four reference-semantics cases. The reference calculation and assertions remain unchanged. Task shapes and cross-1024 ties cover the original nine failure scenarios.
+- Performance tests: `benchmark_nearest.py` covers 18 shapes and two dtypes, with 20 warmups and 100 timed calls per point. It measures the full Python API, requires reference/NPU latency of at least 0.45 and compares all output indices exactly.
+
+After building the repository and activating the CANN and Python environments, run from the repository root:
+
+```bash
+python -m pip install scipy==1.18.0 pytest
+export NPU_DEVICE_ID=0
+export OPENBLAS_NUM_THREADS=4 OMP_NUM_THREADS=4
+python -m pytest test/nearest/arch35/test_nearest.py -v
+python test/nearest/arch35/benchmark_nearest.py --warmup 20 --iter 100
+```
+
+Tests compare int64 indices with `torch.equal`. Performance results are written locally to `artifacts/nearest/` and are not committed. The CPU reference keeps each batch intact; its largest temporary matrix is about 4 GiB, so at least 8 GiB of free memory is recommended. Run NPU tests sequentially.
+
+---
+
 ### segment_max_csr — CSR Segmented Max
 
 This section describes the existing `int32` pointer API. The new `int64`
