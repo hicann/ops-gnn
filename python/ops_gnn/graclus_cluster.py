@@ -79,8 +79,13 @@ def _get_node_perm(context: _RunContext) -> Tensor:
     return node_perm
 
 
-def _tensor_version(tensor: Tensor) -> int:
-    return int(getattr(tensor, "_version", 0))
+def _tensor_version(tensor: Tensor) -> Optional[int]:
+    try:
+        return int(getattr(tensor, "_version", 0))
+    except RuntimeError:
+        # Inference tensors do not expose a version counter. Since their
+        # mutations cannot be tracked, they must not participate in caching.
+        return None
 
 
 def _validate_inputs(row: Tensor, col: Tensor, weight: OptTensor, num_nodes: Optional[int]) -> None:
@@ -252,6 +257,11 @@ def _graclus_greedy_cpu(rowptr: Tensor, col: Tensor, weight: OptTensor, num_node
 def _make_cache_key(row: Tensor, col: Tensor, weight: OptTensor, node_count: int):
     if weight is None:
         return None
+    row_version = _tensor_version(row)
+    col_version = _tensor_version(col)
+    weight_version = _tensor_version(weight)
+    if row_version is None or col_version is None or weight_version is None:
+        return None
     return _CsrCacheKey(
         row_id=id(row),
         col_id=id(col),
@@ -259,9 +269,9 @@ def _make_cache_key(row: Tensor, col: Tensor, weight: OptTensor, node_count: int
         row_ptr=int(row.data_ptr()),
         col_ptr=int(col.data_ptr()),
         weight_ptr=int(weight.data_ptr()),
-        row_version=_tensor_version(row),
-        col_version=_tensor_version(col),
-        weight_version=_tensor_version(weight),
+        row_version=row_version,
+        col_version=col_version,
+        weight_version=weight_version,
         edge_count=int(row.numel()),
         node_count=node_count,
         weight_dtype=str(weight.dtype),

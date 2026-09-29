@@ -62,6 +62,24 @@ def test_tc05_float64_weight_cpu_fallback_semantics():
         pytest.fail("float64 CPU fallback result is not bit-wise equal to reference")
 
 
+def test_float64_weight_cpu_fallback_with_inference_tensors():
+    reference_row = torch.tensor([0, 0, 1, 1], dtype=torch.long)
+    reference_col = torch.tensor([1, 2, 0, 2], dtype=torch.long)
+    reference_weight = torch.tensor([0.5, 0.2, 0.5, 0.3], dtype=torch.float64)
+    torch.manual_seed(101)
+    expected = reference_graclus_cluster(reference_row, reference_col, reference_weight, num_nodes=3)
+
+    with torch.inference_mode():
+        row = torch.tensor([0, 0, 1, 1], dtype=torch.long)
+        col = torch.tensor([1, 2, 0, 2], dtype=torch.long)
+        weight = torch.tensor([0.5, 0.2, 0.5, 0.3], dtype=torch.float64)
+        torch.manual_seed(101)
+        actual = ops_gnn.graclus_cluster(row, col, weight, num_nodes=3)
+
+    if not torch.equal(actual, expected):
+        pytest.fail("inference tensor CPU fallback result is not bit-wise equal to reference")
+
+
 def test_tc06_empty_edges():
     row = torch.empty(0, dtype=torch.long)
     col = torch.empty(0, dtype=torch.long)
