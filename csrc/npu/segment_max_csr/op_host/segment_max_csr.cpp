@@ -13,6 +13,7 @@
 #include "tiling/platform/platform_ascendc.h"
 #include "segment_max_csr/op_kernel/arch35/segment_max_csr_tiling.h"
 #include <acl/acl_base.h>
+#include "torch_npu/csrc/core/npu/NPUStream.h"
 
 namespace opsgnn {
 
@@ -188,13 +189,8 @@ torch::Tensor segment_max_csr(torch::Tensor src, torch::Tensor indptr, torch::Te
         indptr.numel(), sizeofdatatype, aivCanUseNum, dim.indptrDim,
         strideIndptr, hasOptionalOut ? 1 : 0);
 
-    aclrtStream stream = nullptr;
-    aclrtCreateStream(&stream);
-
+    aclrtStream stream = c10_npu::getCurrentNPUStream(src.get_device()).stream();
     LaunchKernel(src, indptr, optional_out, out, hasOptionalOut, tiling, stream);
-
-    aclrtSynchronizeStream(stream);
-    aclrtDestroyStream(stream);
 
     return out;
 }

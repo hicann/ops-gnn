@@ -201,5 +201,32 @@ def test_segment_max_csr_complex_shape():
     assert torch.allclose(result, expected, rtol=1e-3, atol=1e-3)
 
 
+def test_segment_max_csr_current_stream_ordering():
+    """A preceding write on a non-default stream must feed each reduction."""
+    device_id = int(os.environ.get("NPU_DEVICE_ID", 0))
+    torch.npu.set_device(device_id)
+    stream = torch.npu.Stream()
+    with torch.npu.stream(stream):
+        src = torch.full((4, 64), -1.0, device="npu")
+        indptr = torch.tensor([0, 2, 4], dtype=torch.int32, device="npu")
+        results = []
+        for value in range(1, 9):
+            src.fill_(float(value))
+            results.append(ops_gnn.segment_max_csr(src, indptr))
+    stream.synchronize()
+    for value, result in enumerate(results, start=1):
+        assert torch.equal(result.cpu(), torch.full((2, 64), float(value)))
+
+
+def test_segment_max_csr_zero_k_returns_empty():
+    device_id = int(os.environ.get("NPU_DEVICE_ID", 0))
+    torch.npu.set_device(device_id)
+    src = torch.empty((4, 0), dtype=torch.float32, device="npu")
+    indptr = torch.tensor([0, 2, 4], dtype=torch.int32, device="npu")
+    result = ops_gnn.segment_max_csr(src, indptr)
+    assert result.shape == (2, 0)
+    assert result.numel() == 0
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])
