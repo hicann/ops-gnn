@@ -69,6 +69,7 @@ cd scripts
 
 # Build Python package
 ./build.sh python
+cd ..
 ```
 
 ### Method 3: Using CMake (Linux)
@@ -79,6 +80,7 @@ mkdir -p build_cmake
 cd build_cmake
 cmake ..
 cmake --build .
+cd ..
 ```
 
 ## Functional Tests

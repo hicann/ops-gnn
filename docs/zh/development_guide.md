@@ -72,11 +72,13 @@ python3 -m pip install --no-build-isolation --no-deps -e .
 # 方式二：构建脚本安装
 cd scripts
 ./build.sh python
+cd ..
 
 # 方式三：CMake 手动编译
 mkdir build_cmake && cd build_cmake
 cmake ..
 cmake --build .
+cd ..
 ```
 
 ## 二、项目架构

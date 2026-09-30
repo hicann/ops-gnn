@@ -69,6 +69,7 @@ cd scripts
 
 # 构建 Python 包
 ./build.sh python
+cd ..
 ```
 
 ### 方法3：使用CMake（Linux）
@@ -79,6 +80,7 @@ mkdir -p build_cmake
 cd build_cmake
 cmake ..
 cmake --build .
+cd ..
 ```
 
 ## 功能测试

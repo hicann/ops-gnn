@@ -72,11 +72,13 @@ python3 -m pip install --no-build-isolation --no-deps -e .
 # Method 2: Build script
 cd scripts
 ./build.sh python
+cd ..
 
 # Method 3: CMake manual build
 mkdir build_cmake && cd build_cmake
 cmake ..
 cmake --build .
+cd ..
 ```
 
 ## Project Architecture
