@@ -178,7 +178,7 @@ src = torch.tensor([[1, 2], [3, 4]], dtype=torch.float32, device='npu')
 indptr = torch.tensor([0, 0, 2], dtype=torch.int32, device='npu')
 
 result = ops_gnn.segment_max_csr(src, indptr)
-# result[0] = [-inf, -inf]  — empty segment filled with minimum
+# result[0] = [-3.4028235e+38, -3.4028235e+38]  — empty segment filled with finite float32 minimum (-FLT_MAX)
 # result[1] = [3, 4]        — max of src[0:2]
 ```
 
