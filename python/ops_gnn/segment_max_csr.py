@@ -42,8 +42,8 @@ def segment_max_csr(
         >>> indptr = torch.tensor([[0, 2, 4]], dtype=torch.int32, device='npu')
         >>> result = ops_gnn.segment_max_csr(src, indptr)
         >>> result
-        tensor([[3., 4.],
-                [7., 8.]], device='npu:0')
+        tensor([[2., 4.],
+                [6., 8.]], device='npu:0')
     """
     if optional_out is None:
         optional_out = torch.tensor([])
