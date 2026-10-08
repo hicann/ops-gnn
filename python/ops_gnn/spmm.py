@@ -173,9 +173,11 @@ def _reduce_messages(indptr: torch.Tensor, messages: torch.Tensor,
             counts.to(torch.int64))
         result = messages.new_zeros(shape).index_add(0, rows, messages)
         if reduce == "mean":
-            divisor = counts.clamp(min=1).to(messages.dtype)
+            # Keep the count in FP32: FP16 cannot represent row degrees above
+            # 65504, so converting a larger count can produce infinity.
+            divisor = counts.clamp(min=1).to(torch.float32)
             divisor = divisor.reshape((row_count,) + (1,) * (messages.dim() - 1))
-            result = result / divisor
+            result = (result.to(torch.float32) / divisor).to(messages.dtype)
         return result
 
     if row_count == 0:

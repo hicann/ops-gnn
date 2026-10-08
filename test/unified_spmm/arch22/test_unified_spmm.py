@@ -118,6 +118,22 @@ def test_empty(op, m, k):
     torch.testing.assert_close(op(ptr, idx, x).cpu(), torch.zeros(m, 17))
 
 
+def test_fp16_mean_large_degree(op):
+    degree = 1 << 16
+    ptr = torch.tensor([0, degree], dtype=torch.int64)
+    idx = torch.zeros(degree, dtype=torch.int64)
+    x = torch.ones((1, 1), dtype=torch.float16)
+    rhs = torch.zeros((degree, 1), dtype=torch.float16)
+    rhs[0, 0] = 1
+
+    got = op(ptr.npu(), idx.npu(), x.npu(), op="mul", reduce="mean",
+             rhs=rhs.npu())
+    expected = torch.tensor([[1.0 / degree]], dtype=torch.float16)
+
+    assert got.dtype == torch.float16
+    torch.testing.assert_close(got.cpu(), expected, rtol=0, atol=0)
+
+
 def test_noncontiguous_and_out(op):
     ptr = torch.tensor([0, 99, 2, 99, 3, 99], device="npu")[::2]
     idx = torch.tensor([0, 99, 1, 99, 0, 99], device="npu")[::2]
