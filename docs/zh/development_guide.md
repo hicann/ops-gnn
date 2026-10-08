@@ -393,6 +393,21 @@ CSR_PRODUCT_ROOT="$PWD" PYTHONPATH=python python /path/to/evidence/validation_in
 计算、计时方式及 0.45 门槛保持原样。Profiler 独立运行，用于诊断，不能替代接口计时。
 
 
+### segment_coo 验证入口
+
+功能用例集中在一个文件，参考和性能工具分别独立；验证环境需安装真实的
+CPU torch_scatter 2.1.2（选择与当前 Python/PyTorch 匹配的 CPU wheel）。
+测试不会用跳过或 mock 代替该参考。执行前加载 CANN 环境并构建扩展：
+
+```bash
+NPU_ARCH=dav-3510 python setup.py build_ext --inplace
+PYTHONPATH=python python -m pytest test/segment_coo/arch35 -q -ra
+for reduce in sum mean min max; do
+  PYTHONPATH=python python test/segment_coo/arch35/benchmark_segment_coo.py \
+    --reduce "$reduce" --warmup 20 --iter 100
+done
+```
+
 ## 七、更多资源
 
 - **[返回 README](../../README.md)**

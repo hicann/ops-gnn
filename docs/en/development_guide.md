@@ -402,6 +402,22 @@ binaries. Inputs, reference calculations, timing and the 0.45 threshold are reta
 Profiler runs remain a separate diagnostic and do not replace interface timing.
 
 
+### segment_coo validation
+
+Functional cases are consolidated into one module, with separate reference
+and benchmark entry points. Install real CPU torch_scatter 2.1.2 using a CPU
+wheel matching the Python/PyTorch environment; tests do not replace it with
+skips or mocks. Load CANN and build the extension before running:
+
+```bash
+NPU_ARCH=dav-3510 python setup.py build_ext --inplace
+PYTHONPATH=python python -m pytest test/segment_coo/arch35 -q -ra
+for reduce in sum mean min max; do
+  PYTHONPATH=python python test/segment_coo/arch35/benchmark_segment_coo.py \
+    --reduce "$reduce" --warmup 20 --iter 100
+done
+```
+
 ## More Resources
 
 - **[Back to README](../../README_en.md)**

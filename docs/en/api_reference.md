@@ -889,6 +889,24 @@ def test_my_operator():
 
 ---
 
+### segment_coo — Sorted COO segment reductions
+
+`segment_coo(src, index, out=None, dim_size=None, reduce="sum")` returns values.
+The sum/add/mean-specific functions use the same arguments without reduce;
+`segment_min_coo` and `segment_max_coo` return `(values, indices)`.
+
+The int64 index must be sorted, nonnegative and in range. Reduction uses
+`index.dim()-1`, with broadcasting across leading dimensions. Source rank is
+1–8; supported dtypes are float16/float32/bfloat16/int8/uint8/int32/int64.
+Strided inputs and outputs are supported. Alignment temporaries are copied
+back to the caller's original out. An out buffer determines the segment count;
+otherwise dim_size or the maximum index plus one is used. mul is unsupported.
+
+sum/add overwrite out; mean includes its initial value, while min/max compare
+against it. Empty segments are zero without out; mean/min/max retain supplied
+empty segments. Extrema ties select the later source position. Empty arg
+sentinels use the reduction length; indices are zero when that length is zero.
+
 ## Back to Main
 
 - **[Back to README](../../README_en.md)**

@@ -64,6 +64,10 @@ else:
         segment_min_csr,
         segment_max_csr,
     )
+    from .segment_coo import (
+        segment_coo, segment_sum_coo, segment_add_coo,
+        segment_mean_coo, segment_min_coo, segment_max_coo,
+    )
     from .radius import radius, radius_graph
     from .nearest import nearest
     from .typing import Tensor, OptTensor
@@ -88,6 +92,12 @@ else:
         'segment_add_csr',
         'segment_mean_csr',
         'segment_min_csr',
+        'segment_coo',
+        'segment_sum_coo',
+        'segment_add_coo',
+        'segment_mean_coo',
+        'segment_min_coo',
+        'segment_max_coo',
         'ind2ptr',
         'ptr2ind',
         'radius',

@@ -26,6 +26,7 @@
 #include "ind2ptr/op_host/ind2ptr.h"
 #include "ptr2ind/op_host/ptr2ind.h"
 #include "scatter/op_host/scatter.h"
+#include "segment_coo/op_host/segment_coo.h"
 #endif
 
 namespace py = pybind11;
@@ -66,6 +67,13 @@ void BindArch22(py::module_& m)
 void BindArch35(py::module_& m)
 {
     m.attr("npu_arch") = "dav-3510";
+    m.attr("SEGMENT_COO_SUM") = static_cast<int32_t>(SEGMENT_COO_SUM);
+    m.attr("SEGMENT_COO_MEAN") = static_cast<int32_t>(SEGMENT_COO_MEAN);
+    m.attr("SEGMENT_COO_MIN") = static_cast<int32_t>(SEGMENT_COO_MIN);
+    m.attr("SEGMENT_COO_MAX") = static_cast<int32_t>(SEGMENT_COO_MAX);
+    m.def("segment_coo_forward", &segment_coo_forward, py::arg("src"), py::arg("index"),
+          py::arg("out"), py::arg("dim_size"), py::arg("reduce"), py::arg("return_arg") = true,
+          py::call_guard<py::gil_scoped_release>());
     m.def("random_walk", &opsgnn::random_walk_npu,
           py::arg("rowptr"), py::arg("col"), py::arg("start"), py::arg("walk_length"),
           py::arg("p") = 1.0, py::arg("q") = 1.0, py::arg("return_edge_indices") = false,

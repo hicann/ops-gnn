@@ -37,3 +37,52 @@ b.  Huawei may at any time, terminate this Agreement if: (i) you fail to comply 
 If the application of any provision of this Agreement to any particular facts or circumstances is held to be invalid or unenforceable by a court of competent jurisdiction, then (a) the validity and enforceability of such provision as applied to any other particular facts or circumstances and the validity of other provisions of this Agreement shall not in any way be affected or impaired thereby and (b) such provision shall be enforced to the maximum extent possible so as to affect the intent of the you and Huawei and reformed without further action by you and Huawei to the extent necessary to make such provision valid and enforceable.
 
 END OF THE TERMS AND CONDITIONS
+
+========================================================================
+Third-party notices: torch_scatter 2.1.2 public-interface adaptation
+========================================================================
+
+Upstream API source: https://github.com/rusty1s/pytorch_scatter/blob/2.1.2/torch_scatter/segment_coo.py
+Version: 2.1.2
+Attribution scope: python/ops_gnn/segment_coo.py
+
+The adapted material is the public Python interface declarations for
+segment_sum_coo, segment_add_coo, segment_mean_coo, segment_min_coo,
+segment_max_coo, and segment_coo: function names, parameter names/order,
+type annotations, default values, and return annotations. The sum/add/mean
+dispatch in segment_coo also retains the upstream public reduction mapping
+and calls to segment_sum_coo / segment_mean_coo, with rewritten conditions.
+
+The wrapper bodies use this project's _pybind.segment_coo_forward and
+SEGMENT_COO_* constants instead of upstream torch.ops.torch_scatter calls.
+The add wrapper delegates to this project's sum wrapper; min/max dispatch
+uses this project's values-only binding. Current docstrings describe this
+project's output-buffer, integer-mean and tie-breaking behavior; they do
+not include the upstream long-form segment_coo docstring, examples or image.
+This attribution does not describe the Ascend host/kernel or independent
+PyTorch test reference as copied upstream CPU/CUDA implementations.
+
+The existing upstream copyright and MIT permission notice are retained
+below for this narrowly identified interface adaptation. This is not a
+claim that the entire NPU implementation is upstream code or MIT-licensed.
+Project additions remain subject to the repository root LICENSE.
+
+Copyright (c) 2020 Matthias Fey <matthias.fey@tu-dortmund.de>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.

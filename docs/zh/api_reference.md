@@ -871,6 +871,28 @@ def test_my_operator():
 
 ---
 
+### segment_coo — 排序 COO 分段归约
+
+`segment_coo(src, index, out=None, dim_size=None, reduce="sum")` 返回归约值。
+`segment_sum_coo`、`segment_add_coo`、`segment_mean_coo` 参数相同但不接受
+reduce；`segment_min_coo`、`segment_max_coo` 返回 `(values, indices)`。
+
+index 为排序的非负 int64，归约维为 `index.dim()-1`，前部维度支持广播。
+src rank 为 1–8，支持 float16/float32/bfloat16/int8/uint8/int32/int64。
+支持非连续输入和 out；对齐暂存的结果写回原 out。提供 out 时由它确定
+输出段数，否则使用 dim_size 或最大 index 加一。mul 不支持。
+
+sum/add 覆盖 out；mean 使用 out 初值，min/max 与初值比较。无 out 的
+空段返回零，有 out 时 mean/min/max 保留空段初值。极值平局选择较后位置；
+空段索引为归约维长度；归约维长度为零时，极值索引为零。
+
+```python
+src = torch.tensor([[1., 2.], [3., 4.], [5., 6.]], device="npu")
+index = torch.tensor([0, 0, 2], dtype=torch.int64, device="npu")
+values = ops_gnn.segment_coo(src, index, dim_size=4, reduce="sum")
+# [[4., 6.], [0., 0.], [5., 6.], [0., 0.]]
+```
+
 ## 四、返回主文档
 
 - **[返回 README](../../README.md)**
