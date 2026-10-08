@@ -27,7 +27,7 @@ def _check_reduce(reduce: str) -> None:
     if reduce not in _REDUCE_OPS:
         raise ValueError(
             f"reduce value '{reduce}' is not valid "
-            f"(use one of {_REDUCE_OPS + ('mul',)})"
+            f"(use one of {_REDUCE_OPS})"
         )
 
 
