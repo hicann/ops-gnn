@@ -138,6 +138,7 @@ ops_gnn.segment_max_csr(src, indptr, optional_out)
 
 ```python
 import torch
+import os
 import ops_gnn
 
 device_id = int(os.environ.get("NPU_DEVICE_ID", 0))
