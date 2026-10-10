@@ -210,7 +210,7 @@ setup(
     license='MIT',
     url=URL,
     download_url=f'{URL}/archive/{__version__}.tar.gz',
-    python_requires='>=3.8',
+    python_requires='>=3.9',
     ext_modules=[],
     distclass=BinaryDistribution,
     cmdclass={

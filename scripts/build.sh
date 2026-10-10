@@ -214,7 +214,7 @@ find_python() {
     elif command -v python &> /dev/null; then
         PYTHON_CMD="python"
     else
-        log_error "Python 未安装，请安装 Python 3.8+"
+        log_error "Python 未安装，请安装 Python 3.9+"
     fi
 
     PYTHON_VERSION=$($PYTHON_CMD --version 2>&1 | awk '{print $2}')
@@ -225,8 +225,8 @@ find_python() {
     export Python3_ROOT_DIR="$PYTHON_PREFIX"
     log_info "Python3_ROOT_DIR: $Python3_ROOT_DIR"
 
-    if ! version_ge "$PYTHON_VERSION" "3.8"; then
-        log_error "Python 版本需要 >= 3.8，当前版本: $PYTHON_VERSION"
+    if ! version_ge "$PYTHON_VERSION" "3.9"; then
+        log_error "Python 版本需要 >= 3.9，当前版本: $PYTHON_VERSION"
     fi
 }
 
