@@ -30,6 +30,7 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 BUILD_TYPE="Release"
 # 命令行 --npu-arch 优先；否则沿用环境变量，最后自动检测设备。
 NPU_ARCH="${NPU_ARCH:-${TARGET_NPU_ARCH:-}}"
+CANN_TARGET="${CANN_TARGET:-}"
 WITH_PYTHON="ON"
 INSTALL_PREFIX="${PROJECT_ROOT}/output"
 
@@ -52,6 +53,7 @@ ${BLUE}ops-gnn 构建脚本${NC}
     -t, --type TYPE      构建类型 (Debug/Release) [默认: Release]
     --npu-arch ARCH      NPU 架构 (dav-3510/dav-2201；dav-2201 覆盖 A2/A3)
                          [默认: 环境变量 NPU_ARCH/TARGET_NPU_ARCH，未设置时按芯片型号自动检测]
+    --cann-target TARGET 目标设备 (950/a2/a3)，同时选择架构和 wheel 版本标记
     --no-python          禁用 Python 绑定 (仅 C++ 构建)
     -c, --clean          清理构建缓存 (删除 build 和 output 目录)
     -h, --help           显示帮助信息
@@ -116,6 +118,10 @@ while [[ $# -gt 0 ]]; do
             NPU_ARCH="$2"
             shift 2
             ;;
+        --cann-target)
+            CANN_TARGET="$2"
+            shift 2
+            ;;
         --no-python)
             WITH_PYTHON="OFF"
             shift
@@ -135,52 +141,50 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-detect_npu_arch() {
+detect_cann_target() {
     local npu_smi_bin="${NPU_SMI_BIN:-npu-smi}"
     local device_info
-
     if ! command -v "$npu_smi_bin" >/dev/null 2>&1; then
-        log_warn "由于检测不到 NPU 设备，当前默认以 Ascend 950 设备进行编译（dav-3510 / arch35）；原因：未找到 npu-smi"
-        log_warn "如需指定架构，可用 --npu-arch 或 TARGET_NPU_ARCH 显式指定"
-        NPU_ARCH="dav-3510"
-        return 0
-    fi
-    if ! device_info="$("$npu_smi_bin" info -m 2>&1)"; then
-        log_warn "由于检测不到 NPU 设备，当前默认以 Ascend 950 设备进行编译（dav-3510 / arch35）；原因：npu-smi info 执行失败"
-        log_warn "如需指定架构，可用 --npu-arch 或 TARGET_NPU_ARCH 显式指定"
-        NPU_ARCH="dav-3510"
-        return 0
-    fi
-
-    # 按芯片型号识别：A3(910C)/A2(910B) -> dav-2201(arch22)；950 -> dav-3510(arch35)
-    if grep -qiE "ascend[[:space:]]*910_93|ascend[[:space:]]*910c" <<< "$device_info"; then
-        log_info "检测到芯片型号: A3 (910C)，编译 arch22 算子"
-        NPU_ARCH="dav-2201"
-    elif grep -qiE "ascend[[:space:]]*910b" <<< "$device_info"; then
-        log_info "检测到芯片型号: A2 (910B)，编译 arch22 算子"
-        NPU_ARCH="dav-2201"
-    elif grep -qiE "ascend[[:space:]]*950" <<< "$device_info"; then
-        log_info "检测到芯片型号: 950，编译 arch35 算子"
-        NPU_ARCH="dav-3510"
+        log_warn "未找到 npu-smi，默认以 Ascend 950 设备进行编译；可用 --cann-target 指定目标"
+        CANN_TARGET="950"
+    elif ! device_info=$("$npu_smi_bin" info -m 2>&1); then
+        log_warn "npu-smi info 执行失败，默认以 Ascend 950 设备进行编译；可用 --cann-target 指定目标"
+        CANN_TARGET="950"
+    elif grep -qiE '910_93|910c' <<< "$device_info"; then
+        CANN_TARGET="a3"
+    elif grep -qi '910b' <<< "$device_info"; then
+        CANN_TARGET="a2"
+    elif grep -qi '950' <<< "$device_info"; then
+        CANN_TARGET="950"
     else
-        log_error "不支持的芯片型号，仅支持 950 / A2(910B) / A3(910C)；可用 --npu-arch 或 TARGET_NPU_ARCH 显式指定"
+        log_error "不支持的芯片型号，仅支持 950 / A2 / A3"
     fi
 }
 
-if [ -z "$NPU_ARCH" ]; then
-    detect_npu_arch
-fi
-
 case "$NPU_ARCH" in
-    dav-3510|dav-2201)
-        ;;
-    *)
-        log_error "不支持的 NPU 架构: $NPU_ARCH（支持 dav-3510、dav-2201）"
-        ;;
+    ""|dav-3510|dav-2201) ;;
+    *) log_error "不支持的 NPU 架构: $NPU_ARCH（支持 dav-3510、dav-2201）" ;;
 esac
+if [ -z "$CANN_TARGET" ]; then
+    if [ "$NPU_ARCH" = "dav-3510" ]; then
+        CANN_TARGET="950"
+    else
+        detect_cann_target
+    fi
+fi
+CANN_TARGET="${CANN_TARGET,,}"
+case "$CANN_TARGET" in
+    950) TARGET_ARCH="dav-3510" ;;
+    a2|a3) TARGET_ARCH="dav-2201" ;;
+    *) log_error "不支持的 CANN_TARGET: $CANN_TARGET（支持 950、a2、a3）" ;;
+esac
+if [ -n "$NPU_ARCH" ] && [ "$NPU_ARCH" != "$TARGET_ARCH" ]; then
+    log_error "NPU_ARCH=$NPU_ARCH 与 CANN_TARGET=$CANN_TARGET 不匹配"
+fi
+NPU_ARCH="$TARGET_ARCH"
 
 # Python 构建由 setup.py 启动新的 CMake 进程，因此必须导出该值。
-export NPU_ARCH
+export NPU_ARCH CANN_TARGET
 
 ###############################################################################
 # 清理构建缓存
@@ -282,28 +286,20 @@ build_python() {
 
     cd "$PROJECT_ROOT"
 
-    # 构建 Python 包
-    $PYTHON_CMD setup.py build_ext --inplace
-
-    # 安装到开发模式
+    # 开发模式安装同时编译原生库并保存可分发的 wheel 包。
     log_info "安装 Python 包到开发模式..."
     if ! $PYTHON_CMD -m pip install -e . --no-build-isolation &> /dev/null; then
         log_warn "标准安装失败，尝试使用 --break-system-packages..."
         $PYTHON_CMD -m pip install -e . --no-build-isolation --break-system-packages || \
-            log_warn "安装失败，请手动安装: $PYTHON_CMD -m pip install -e ."
+            log_error "Python 开发模式安装失败"
     fi
 
-    # 生成 wheel 包 (使用 pip wheel 避免弃用警告)
-    log_info "生成 wheel 包..."
-    mkdir -p output/whl
-    $PYTHON_CMD -m pip wheel . --no-deps --no-build-isolation -w output/whl
-
     # 显示 wheel 包位置
-    WHL_FILE=$(find "$PROJECT_ROOT/output/whl" -name "*.whl" 2>/dev/null | head -n1)
+    WHL_FILE=$(find "$PROJECT_ROOT/output/whl" -name "ops_gnn-*+cann_${CANN_TARGET}-*.whl" 2>/dev/null | head -n1)
     if [ -n "$WHL_FILE" ]; then
         log_info "wheel 包生成成功: $WHL_FILE"
     else
-        log_warn "wheel 包未找到"
+        log_error "wheel 包未找到: $PROJECT_ROOT/output/whl（目标: $CANN_TARGET）"
     fi
 
     log_info "Python 包构建完成!"
@@ -356,6 +352,7 @@ build_cpp() {
         -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
         -DWITH_PYTHON="$WITH_PYTHON" \
         -DNPU_ARCH="$NPU_ARCH" \
+        -DCANN_TARGET="$CANN_TARGET" \
         "$PROJECT_ROOT"
 
     # 编译
@@ -392,6 +389,7 @@ main() {
     log_info "构建目标: $BUILD_TARGET"
     log_info "构建类型: $BUILD_TYPE"
     log_info "NPU 架构: $NPU_ARCH"
+    log_info "CANN 目标设备: $CANN_TARGET"
     log_info "Python 绑定: $WITH_PYTHON"
     log_info "清理缓存: $CLEAN_BUILD"
 

@@ -38,7 +38,7 @@ Each operator directory under `csrc/npu` contains `op_host` and `op_kernel/<arch
 - A torch_npu build matched to PyTorch and CANN
 - CANN Toolkit (AscendC compiler)
 - C++17 or later compiler
-- Supported platform: Ascend 950 (arch35) and A2/A3 (910B/910C, arch22); other platforms are not supported
+- Supported platform: Ascend 950 (arch35) and A2/A3 (arch22); other platforms are not supported
 
 ### CANN Environment Setup
 
@@ -75,13 +75,28 @@ cd ..
 ### Method 3: Using CMake (Linux)
 
 ```bash
-
 mkdir -p build_cmake
 cd build_cmake
 cmake ..
 cmake --build .
 cd ..
 ```
+
+### Build Outputs and Target Devices
+
+All three methods save distributable wheels to `output/whl/`. Methods 1 and 2 also install in
+development mode; Method 3 packages the wheel after building shared libraries.
+Wheel filenames identify the target device:
+
+| Target device | Wheel filename |
+|---------------|----------------|
+| A2 | `ops_gnn-0.1.0+cann_a2-*.whl` |
+| A3 | `ops_gnn-0.1.0+cann_a3-*.whl` |
+| 950 | `ops_gnn-0.1.0+cann_950-*.whl` |
+
+The local chip is detected automatically, with 950 as the fallback when no device is detected.
+To select a target manually, set the `CANN_TARGET` environment variable for Method 1,
+use `--cann-target` for Method 2, or use `-DCANN_TARGET` for Method 3. Values are `a2`, `a3`, or `950`.
 
 ## Functional Tests
 

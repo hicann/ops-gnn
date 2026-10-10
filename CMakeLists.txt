@@ -21,54 +21,75 @@ set(OPSGNN_VERSION 0.1.0)
 # Configuration Options
 ###############################################################################
 
-set(VALID_NPU_ARCHS dav-3510 dav-2201)
 if(NOT DEFINED NPU_ARCH OR NPU_ARCH STREQUAL "")
-    find_program(NPU_SMI_EXECUTABLE npu-smi)
-    if(NOT NPU_SMI_EXECUTABLE)
-        message(WARNING "由于检测不到 NPU 设备，当前默认以 Ascend 950 设备进行编译 "
-                        "(dav-3510 / arch35)；原因：未找到 npu-smi。"
-                        "Override with -DNPU_ARCH=dav-2201 or -DNPU_ARCH=dav-3510.")
-        set(NPU_ARCH "dav-3510" CACHE STRING "NPU architecture" FORCE)
+    if(NOT "$ENV{NPU_ARCH}" STREQUAL "")
+        set(NPU_ARCH "$ENV{NPU_ARCH}")
     else()
-        execute_process(
-            COMMAND ${NPU_SMI_EXECUTABLE} info -m
-            RESULT_VARIABLE NPU_SMI_RESULT
-            OUTPUT_VARIABLE NPU_SMI_OUTPUT
-            ERROR_VARIABLE NPU_SMI_ERROR
-        )
-        if(NOT NPU_SMI_RESULT EQUAL 0)
-            string(STRIP "${NPU_SMI_OUTPUT}" NPU_SMI_OUTPUT)
-            string(STRIP "${NPU_SMI_ERROR}" NPU_SMI_ERROR)
-            message(WARNING
-                "由于检测不到 NPU 设备，当前默认以 Ascend 950 设备进行编译 "
-                "(dav-3510 / arch35)。\n"
-                "  执行命令: ${NPU_SMI_EXECUTABLE} info -m\n"
-                "  返回值: ${NPU_SMI_RESULT}\n"
-                "  标准输出: ${NPU_SMI_OUTPUT}\n"
-                "  标准错误: ${NPU_SMI_ERROR}\n"
-                "请检查 NPU 驱动、设备权限及 npu-smi 是否可正常运行；"
-                "也可通过 -DNPU_ARCH=dav-2201 或 -DNPU_ARCH=dav-3510 显式指定目标架构。")
-            set(NPU_ARCH "dav-3510" CACHE STRING "NPU architecture" FORCE)
+        set(NPU_ARCH "$ENV{TARGET_NPU_ARCH}")
+    endif()
+endif()
+set(VALID_NPU_ARCHS dav-3510 dav-2201)
+if(NOT NPU_ARCH STREQUAL "" AND NOT "${NPU_ARCH}" IN_LIST VALID_NPU_ARCHS)
+    message(FATAL_ERROR "Unsupported NPU_ARCH: ${NPU_ARCH}")
+endif()
+if(NOT DEFINED CANN_TARGET OR CANN_TARGET STREQUAL "")
+    set(CANN_TARGET "$ENV{CANN_TARGET}")
+endif()
+if(CANN_TARGET STREQUAL "")
+    if(NPU_ARCH STREQUAL "dav-3510")
+        set(CANN_TARGET "950")
+    else()
+        if(NOT "$ENV{NPU_SMI_BIN}" STREQUAL "")
+            find_program(NPU_SMI_EXECUTABLE NAMES "$ENV{NPU_SMI_BIN}")
+        else()
+            find_program(NPU_SMI_EXECUTABLE NAMES npu-smi)
+        endif()
+        set(NPU_SMI_RESULT "not found")
+        if(NPU_SMI_EXECUTABLE)
+            execute_process(
+                COMMAND "${NPU_SMI_EXECUTABLE}" info -m
+                RESULT_VARIABLE NPU_SMI_RESULT
+                OUTPUT_VARIABLE NPU_SMI_OUTPUT
+                ERROR_VARIABLE NPU_SMI_ERROR
+                TIMEOUT 10
+            )
+        endif()
+        if(NOT NPU_SMI_RESULT STREQUAL "0")
+            message(WARNING "检测不到 NPU 设备，默认以 Ascend 950 设备进行编译；可用 -DCANN_TARGET=950/a2/a3 指定目标")
+            set(CANN_TARGET "950")
         else()
             string(TOLOWER "${NPU_SMI_OUTPUT}" NPU_SMI_OUTPUT_LOWER)
-            # 按芯片型号识别：A3(910C)/A2(910B) -> dav-2201(arch22)；950 -> dav-3510(arch35)
-            if(NPU_SMI_OUTPUT_LOWER MATCHES "ascend[[:space:]]*910_93" OR NPU_SMI_OUTPUT_LOWER MATCHES "ascend[[:space:]]*910c" OR NPU_SMI_OUTPUT_LOWER MATCHES "ascend[[:space:]]*910b")
-                set(NPU_ARCH "dav-2201" CACHE STRING "NPU architecture" FORCE)
-            elseif(NPU_SMI_OUTPUT_LOWER MATCHES "ascend[[:space:]]*950")
-                set(NPU_ARCH "dav-3510" CACHE STRING "NPU architecture" FORCE)
+            if(NPU_SMI_OUTPUT_LOWER MATCHES "910_93|910c")
+                set(CANN_TARGET "a3")
+            elseif(NPU_SMI_OUTPUT_LOWER MATCHES "910b")
+                set(CANN_TARGET "a2")
+            elseif(NPU_SMI_OUTPUT_LOWER MATCHES "950")
+                set(CANN_TARGET "950")
             else()
-                message(FATAL_ERROR "不支持的芯片型号，仅支持 950 / A2(910B) / A3(910C)。可显式设置 -DNPU_ARCH=dav-3510 或 -DNPU_ARCH=dav-2201。npu-smi 输出: ${NPU_SMI_OUTPUT}")
+                message(FATAL_ERROR "不支持的芯片型号，仅支持 950 / A2 / A3")
             endif()
         endif()
     endif()
-    message(STATUS "Auto-detected NPU_ARCH=${NPU_ARCH}")
 endif()
-if(NOT "${NPU_ARCH}" IN_LIST VALID_NPU_ARCHS)
-    message(FATAL_ERROR "Unsupported NPU_ARCH: ${NPU_ARCH}. Supported values: dav-3510, dav-2201")
+string(TOLOWER "${CANN_TARGET}" CANN_TARGET)
+if(CANN_TARGET STREQUAL "950")
+    set(TARGET_ARCH "dav-3510")
+elseif(CANN_TARGET STREQUAL "a2" OR CANN_TARGET STREQUAL "a3")
+    set(TARGET_ARCH "dav-2201")
+else()
+    message(FATAL_ERROR "Unsupported CANN_TARGET: ${CANN_TARGET}; use 950/a2/a3")
 endif()
+if(NOT NPU_ARCH STREQUAL "" AND NOT NPU_ARCH STREQUAL TARGET_ARCH)
+    message(FATAL_ERROR "NPU_ARCH=${NPU_ARCH} conflicts with CANN_TARGET=${CANN_TARGET}")
+endif()
+set(NPU_ARCH "${TARGET_ARCH}")
+set(NPU_ARCH "${NPU_ARCH}" CACHE STRING "NPU architecture" FORCE)
+set(CANN_TARGET "${CANN_TARGET}" CACHE STRING "CANN target device (950/a2/a3)" FORCE)
+set_property(CACHE CANN_TARGET PROPERTY STRINGS 950 a2 a3)
 
 option(WITH_PYTHON "Link to Python when building" ON)
-message(STATUS "ops_gnn build: NPU_ARCH=${NPU_ARCH}")
+option(OPSGNN_BUILD_WHEEL "Build a distributable Python wheel" ON)
+message(STATUS "ops_gnn build: NPU_ARCH=${NPU_ARCH}, CANN_TARGET=${CANN_TARGET}")
 
 ###############################################################################
 # System Detection
@@ -291,7 +312,7 @@ collect_npu_arch_sources(
     arch35 NPU_ARCH35_FILES NPU_ARCH35_HEADERS NPU_ARCH35_HOST_FILES)
 
 if(NPU_ARCH STREQUAL "dav-2201")
-    # A2(910B)/A3(910C): 只编译 arch22 算子
+    # A2/A3: 只编译 arch22 算子
     set(NPU_ASC_FILES ${NPU_ARCH22_FILES})
     set(NPU_KERNEL_HEADERS ${NPU_ARCH22_HEADERS})
     set(NPU_CPP_INTERFACE_FILES ${NPU_ARCH22_HOST_FILES})
@@ -454,6 +475,20 @@ endif()
 ###############################################################################
 # Installation
 ###############################################################################
+
+if(WITH_PYTHON AND OPSGNN_BUILD_WHEEL)
+    add_custom_target(wheel ALL
+        COMMAND ${CMAKE_COMMAND} -E env
+            "NPU_ARCH=${NPU_ARCH}" "CANN_TARGET=${CANN_TARGET}"
+            "OPSGNN_PREBUILT_DIR=${CMAKE_CURRENT_BINARY_DIR}"
+            "${OPSGNN_PYTHON_EXECUTABLE}" -m pip wheel . --no-deps --no-build-isolation
+            -w "${CMAKE_CURRENT_SOURCE_DIR}/output/whl"
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        DEPENDS _pybind
+        COMMENT "Packaging ops-gnn wheel for ${CANN_TARGET}"
+        VERBATIM
+    )
+endif()
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)

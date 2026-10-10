@@ -14,6 +14,9 @@ import warnings
 
 from setuptools import Distribution, find_packages, setup
 from setuptools.command.build_py import build_py
+from setuptools.command.develop import develop
+from setuptools.command.editable_wheel import editable_wheel
+from wheel.bdist_wheel import bdist_wheel
 
 __version__ = '0.1.0'
 URL = 'https://gitcode.com/cann/ops-gnn'
@@ -21,51 +24,59 @@ URL = 'https://gitcode.com/cann/ops-gnn'
 BUILD_DOCS = os.getenv('BUILD_DOCS', '0') == '1'
 
 
-def _warn_default_npu_arch(reason):
+def detect_cann_target():
+    npu_smi = shutil.which(os.getenv('NPU_SMI_BIN', 'npu-smi'))
+    reason = '未找到 npu-smi'
+    if npu_smi is not None:
+        try:
+            result = subprocess.run(
+                [npu_smi, 'info', '-m'], check=True, stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT, text=True, timeout=10)
+        except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+            reason = f'npu-smi info 执行失败：{exc}'
+        else:
+            product_info = result.stdout.lower()
+            if '910_93' in product_info or '910c' in product_info:
+                return 'a3'
+            if '910b' in product_info:
+                return 'a2'
+            if '950' in product_info:
+                return '950'
+            raise ValueError('不支持的芯片型号，仅支持 950 / A2 / A3。')
     warnings.warn(
-        f'由于{reason}，当前默认以 Ascend 950 设备进行编译'
-        '（dav-3510 / arch35）。'
-        '可设置 NPU_ARCH 环境变量显式指定目标架构。',
-        RuntimeWarning,
-        stacklevel=2,
-    )
+        f'由于检测不到 NPU 设备（{reason}），当前默认以 Ascend 950 设备进行编译'
+        '（dav-3510 / arch35）。可设置 CANN_TARGET=950/a2/a3 显式指定目标设备。',
+        RuntimeWarning, stacklevel=2)
+    return '950'
 
 
-def detect_npu_arch():
-    """Return the CMake NPU_ARCH for the locally visible Ascend product.
+def resolve_npu_target():
+    target_archs = {'950': 'dav-3510', 'a2': 'dav-2201', 'a3': 'dav-2201'}
+    npu_arch = os.getenv('NPU_ARCH') or os.getenv('TARGET_NPU_ARCH')
+    cann_target = os.getenv('CANN_TARGET')
+    if npu_arch and npu_arch not in target_archs.values():
+        raise ValueError(f'Unsupported NPU_ARCH: {npu_arch}')
+    if cann_target:
+        cann_target = cann_target.lower()
+        if cann_target not in target_archs:
+            raise ValueError(f'Unsupported CANN_TARGET: {cann_target}; use 950/a2/a3')
+    else:
+        # dav-2201 is shared by A2/A3 and requires a device label or detection.
+        cann_target = '950' if npu_arch == 'dav-3510' else detect_cann_target()
+    target_arch = target_archs.get(cann_target)
+    if target_arch is None:
+        raise ValueError(f'Unsupported CANN_TARGET: {cann_target}; use 950/a2/a3')
+    if npu_arch and npu_arch != target_arch:
+        raise ValueError(
+            f'NPU_ARCH={npu_arch} 与 CANN_TARGET={cann_target} 不匹配；'
+            '使用 CANN_TARGET=950/a2/a3 指定目标设备。')
+    return target_arch, cann_target
 
-    按芯片型号识别：A2(910B)/A3(910C)→dav-2201，950→dav-3510，其他报错不支持。
-    """
-    npu_smi = shutil.which('npu-smi')
-    if npu_smi is None:
-        _warn_default_npu_arch('检测不到 NPU 设备（未找到 npu-smi）')
-        return 'dav-3510'
-    try:
-        result = subprocess.run(
-            [npu_smi, 'info', '-m'], check=True, stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT, text=True, timeout=10)
-    except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
-        _warn_default_npu_arch(
-            f'检测不到 NPU 设备（npu-smi info 执行失败：{exc}）')
-        return 'dav-3510'
-    product_info = result.stdout.lower()
-    if '910_93' in product_info or '910c' in product_info or '910b' in product_info:
-        return 'dav-2201'
-    if '950' in product_info:
-        return 'dav-3510'
-    raise RuntimeError(
-        '不支持的芯片型号，仅支持 950 / A2(910B) / A3(910C)。'
-        '可设置 NPU_ARCH=dav-3510 或 NPU_ARCH=dav-2201。')
 
-def build_with_cmake():
+def build_with_cmake(npu_arch):
     if 'ASCEND_HOME_PATH' not in os.environ:
         raise EnvironmentError("ASCEND_HOME_PATH environment variable not set. Please source set_env.sh first.")
-    
-    npu_arch = os.getenv('NPU_ARCH') or os.getenv('TARGET_NPU_ARCH')
-    if npu_arch is None:
-        npu_arch = detect_npu_arch()
-    if npu_arch not in ('dav-3510', 'dav-2201'):
-        raise ValueError(f'Unsupported NPU_ARCH: {npu_arch}')
+
     print(f'NPU 架构: {npu_arch}')
     cmake_build_dir = f'build/cmake_python_{npu_arch}'
     # 删除 CMakeCache.txt，避免 pip 拷贝源码到临时目录后
@@ -78,8 +89,10 @@ def build_with_cmake():
     cmake_cmd = [
         'cmake',
         '-DWITH_PYTHON=ON',
+        '-DOPSGNN_BUILD_WHEEL=OFF',
         '-DCMAKE_BUILD_TYPE=Release',
         f'-DNPU_ARCH={npu_arch}',
+        f'-DCANN_TARGET={CANN_TARGET}',
         '-S', '.',
         '-B', cmake_build_dir,
     ]
@@ -101,8 +114,77 @@ def build_with_cmake():
         shutil.copy2(pybind_lib, pybind_dest)
         print(f'Copied _pybind.so to: {pybind_dest}')
 
+
+def reuse_cmake_libraries(build_dir):
+    with open(os.path.join(build_dir, 'CMakeCache.txt'), encoding='utf-8') as cache_file:
+        cache = {}
+        for line in cache_file:
+            if line.startswith(('#', '//')) or '=' not in line:
+                continue
+            key, value = line.strip().split('=', 1)
+            cache[key.split(':', 1)[0]] = value
+    expected = {
+        'NPU_ARCH': NPU_ARCH,
+        'CANN_TARGET': CANN_TARGET,
+    }
+    for key, value in expected.items():
+        if cache.get(key) != value:
+            raise ValueError(f'Prebuilt CMake {key} does not match this wheel build')
+    source_dir = cache.get('CMAKE_HOME_DIRECTORY')
+    if not source_dir or not os.path.isdir(source_dir):
+        raise ValueError('Prebuilt CMake source directory is missing or unavailable')
+    # Older pip versions package a temporary source copy. Read native artifacts
+    # from the original CMake source/build directories instead of the copy.
+    libraries = (
+        (os.path.join(build_dir, 'lib_pybind.so'), '_pybind.so'),
+        (os.path.join(source_dir, 'output', 'kernel', 'libopsgnn_npu_kernel.so'), 'libopsgnn_npu_kernel.so'),
+    )
+    for source, filename in libraries:
+        shutil.copy2(source, os.path.join('python', 'ops_gnn', filename))
+    print(f'Reusing native libraries from: {build_dir}')
+
+
+NPU_ARCH, CANN_TARGET = resolve_npu_target()
+
 if not BUILD_DOCS:
-    build_with_cmake()
+    prebuilt_dir = os.getenv('OPSGNN_PREBUILT_DIR')
+    if prebuilt_dir:
+        reuse_cmake_libraries(prebuilt_dir)
+    else:
+        build_with_cmake(NPU_ARCH)
+
+
+class CannBdistWheel(bdist_wheel):
+    def run(self):
+        super().run()
+        # Preserve canonical internal metadata and use underscores in filenames.
+        for index, (command, python_version, path) in enumerate(self.distribution.dist_files):
+            if command != 'bdist_wheel':
+                continue
+            filename = os.path.basename(path).replace('+cann.', '+cann_')
+            renamed = os.path.join(os.path.dirname(path), filename)
+            if renamed != path:
+                os.replace(path, renamed)
+                self.distribution.dist_files[index] = (command, python_version, renamed)
+
+
+class CannEditableWheel(editable_wheel):
+    def run(self):
+        # Package the already compiled libraries before creating the editable wheel.
+        wheel_command = self.reinitialize_command('bdist_wheel')
+        wheel_command.dist_dir = os.path.abspath(os.path.join('output', 'whl'))
+        self.run_command('bdist_wheel')
+        super().run()
+
+
+class CannDevelop(develop):
+    def run(self):
+        # pip versions before PEP 660 use setup.py develop for editable installs.
+        wheel_command = self.reinitialize_command('bdist_wheel')
+        wheel_command.dist_dir = os.path.abspath(os.path.join('output', 'whl'))
+        self.run_command('bdist_wheel')
+        super().run()
+
 
 class CustomBuildPy(build_py):
     def run(self):
@@ -121,12 +203,11 @@ class BinaryDistribution(Distribution):
     def has_ext_modules(self):
         return True
 
+
 setup(
-    name='ops_gnn',
-    version=__version__,
-    description='OpsGNN: Library of Optimized Graph Neural Network Algorithms for NPU',
+    name='ops-gnn',
+    version=f'{__version__}+cann.{CANN_TARGET}',
     license='MIT',
-    author='Ascend',
     url=URL,
     download_url=f'{URL}/archive/{__version__}.tar.gz',
     python_requires='>=3.8',
@@ -134,6 +215,9 @@ setup(
     distclass=BinaryDistribution,
     cmdclass={
         'build_py': CustomBuildPy,
+        'bdist_wheel': CannBdistWheel,
+        'editable_wheel': CannEditableWheel,
+        'develop': CannDevelop,
     },
     packages=find_packages('python'),
     package_dir={'': 'python'},

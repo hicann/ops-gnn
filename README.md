@@ -27,7 +27,7 @@ ops-gnn/
 └── LICENSE                     # CANN 许可证
 ```
 
-`csrc/npu` 下各算子目录包含 `op_host` 和 `op_kernel/<arch>`；测试按 `test/<算子>/<arch>` 组织，各架构子目录包含 `golden.py`、功能测试文件和性能测试文件。其中，`<arch>` 表示目标架构对应的目录名。编译与测试均只处理当前机器芯片型号对应的目录：950 → `arch35`，A2(910B)/A3(910C) → `arch22`，其他芯片型号不支持。
+`csrc/npu` 下各算子目录包含 `op_host` 和 `op_kernel/<arch>`；测试按 `test/<算子>/<arch>` 组织，各架构子目录包含 `golden.py`、功能测试文件和性能测试文件。其中，`<arch>` 表示目标架构对应的目录名。编译与测试均只处理当前机器芯片型号对应的目录：950 → `arch35`，A2/A3 → `arch22`，其他芯片型号不支持。
 
 ## 环境要求
 
@@ -38,7 +38,7 @@ ops-gnn/
 - 与 PyTorch、CANN 匹配的 torch_npu
 - CANN Toolkit (AscendC 编译器)
 - C++17 或更高版本编译器
-- 支持平台：Ascend 950（arch35）与 A2/A3（910B/910C，arch22）；其他平台不支持
+- 支持平台：Ascend 950（arch35）与 A2/A3（arch22）；其他平台不支持
 
 ### CANN 环境配置
 
@@ -75,13 +75,27 @@ cd ..
 ### 方法3：使用CMake（Linux）
 
 ```bash
-
 mkdir -p build_cmake
 cd build_cmake
 cmake ..
 cmake --build .
 cd ..
 ```
+
+### 构建产物与目标设备
+
+三种方法均将可分发的 wheel 包保存到 `output/whl/`。方法 1、2 同时完成开发模式安装；
+方法 3 在编译共享库后自动打包。
+wheel 文件名按目标设备区分：
+
+| 目标设备 | wheel 文件名 |
+|----------|--------------|
+| A2 | `ops_gnn-0.1.0+cann_a2-*.whl` |
+| A3 | `ops_gnn-0.1.0+cann_a3-*.whl` |
+| 950 | `ops_gnn-0.1.0+cann_950-*.whl` |
+
+默认识别本机芯片，检测不到设备时默认选择 950。需要手动指定时，方法 1 设置环境变量
+`CANN_TARGET`，方法 2 使用 `--cann-target`，方法 3 使用 `-DCANN_TARGET`；取值为 `a2`、`a3` 或 `950`。
 
 ## 功能测试
 

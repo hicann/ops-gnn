@@ -760,8 +760,7 @@ void SegmentCsrVector(
         using T = typename VecRegType<decltype(kc)::value>::type;
         if constexpr (!std::is_void_v<T>) {
             SegmentCsrVecKernel<T><<<blocks, nullptr, stream>>>(
-                (__gm__ const void*)src, (__gm__ const int64_t*)ptr, (__gm__ void*)out, (__gm__ int64_t*)arg, m,
-                segments, k, tileBytes, op, mean);
+                src, ptr, out, arg, m, segments, k, tileBytes, op, mean);
         }
     });
 }
