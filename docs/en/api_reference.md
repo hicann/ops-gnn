@@ -1695,6 +1695,35 @@ copied = sddmm_csr(ptr, idx, lhs, None, op="copy_lhs", lhs_target="v")
 
 Tests live in `test/sddmm_csr/arch22/`.
 
+### csr_row_wise_topk — CSR Row-wise Top-k Selection
+
+```python
+ops_gnn.csr_row_wise_topk(
+    indptr, indices, rows, k, weight, ascending=False, data=None
+) -> (row, col, data)
+```
+
+DGL ``CSRRowWiseTopk`` parity: selects the top-k weighted neighbors of every
+seed row. ``ascending=True`` picks the k smallest; ``k == -1`` selects all edges
+and ``k == 0`` returns an empty result.
+
+- ``weight`` is indexed by edge id; ``float32``, ``float64``, ``int32`` and
+  ``int64`` are accepted (non-float32 weights are shifted to ``weight - min``
+  and evaluated in float32, preserving the per-row ordering).
+- ``data`` is optional: when supplied the CSR data value is returned, otherwise
+  the global edge id.
+- Out-of-range seed rows are empty; rows wider than the UB window (~992 on
+  910B3) raise an error.
+- Forward-only on arch22; no autograd, heterogeneous graph or 3D/batched input.
+
+```python
+from ops_gnn import csr_row_wise_topk
+
+row, col, edge = csr_row_wise_topk(indptr, indices, seeds, 8, weight)
+```
+
+Tests live in `test/csr_row_wise_topk/arch22/`.
+
 ### csr_row_wise_per_etype_sampling_uniform — Per-edge-type uniform COO sampling
 
 ```python

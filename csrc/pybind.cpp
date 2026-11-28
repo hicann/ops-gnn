@@ -31,6 +31,7 @@
 #include "common/spmm/host_proof_cache.h"
 #include "coalesce/op_host/coalesce.h"
 #include "csr_row_wise_sampling/op_host/csr_row_wise_sampling.h"
+#include "csr_row_wise_topk/op_host/csr_row_wise_topk.h"
 #include "csr_row_wise_per_etype_sampling_uniform/op_host/csr_row_wise_per_etype_sampling_uniform.h"
 #include "csr_row_wise_sampling_uniform_fused/op_host/csr_row_wise_sampling_uniform_fused.h"
 #include "csr_transpose/op_host/csr_transpose.h"
@@ -339,6 +340,16 @@ void BindCoalesce(py::module_& m)
           "Coalesce (deduplicate and reduce) a COO edge list on Ascend NPU");
 }
 
+void BindCsrRowWiseTopk(py::module_& m)
+{
+    m.def("csr_row_wise_topk", &opsgnn::CsrRowWiseTopk,
+          py::arg("indptr"), py::arg("indices"), py::arg("rows"), py::arg("k"),
+          py::arg("weight"), py::arg("ascending") = false,
+          py::arg("data") = py::none(),
+          "CSR row-wise top-k selection on Ascend NPU",
+          py::call_guard<py::gil_scoped_release>());
+}
+
 void BindArch22(py::module_& m)
 {
     ops_gnn::sparse::spmm_proof_detail::EnsureObserver();
@@ -374,6 +385,7 @@ void BindArch22(py::module_& m)
     BindArch22Sampling(m);
     BindArch22SpmmFamily(m);
     BindCsrRowWiseSampling(m);
+    BindCsrRowWiseTopk(m);
     BindPerEtypeUniformSampling(m);
     BindCoalesce(m);
     RegisterSpspmm(m);

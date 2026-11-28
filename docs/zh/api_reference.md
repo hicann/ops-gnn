@@ -1569,6 +1569,31 @@ copied = sddmm_csr(ptr, idx, lhs, None, op="copy_lhs", lhs_target="v")
 
 测试位于 `test/sddmm_csr/arch22/`。
 
+### csr_row_wise_topk — CSR 行 top-k 选择
+
+```python
+ops_gnn.csr_row_wise_topk(
+    indptr, indices, rows, k, weight, ascending=False, data=None
+) -> (row, col, data)
+```
+
+对应 DGL `CSRRowWiseTopk`：对每个 seed 行的邻居按 `weight` 选 top-k。
+`ascending=True` 取最小的 k 条；`k == -1` 选全部边，`k == 0` 空结果。
+
+- `weight`：按边 id 索引的一维权重；支持 `float32`、`float64`、`int32`、`int64`
+  （非 float32 会先平移为 `weight - min` 再转 float32，保持行内顺序不变）。
+- `data` 可选：提供时返回 CSR data 值，否则返回全局边 id。
+- 越界 seed 行按空行处理；行宽超过 UB 窗口（910B3 上约 992）时抛出异常。
+- 仅 arch22 前向，不支持 autograd、异构图、3D/batched。
+
+```python
+from ops_gnn import csr_row_wise_topk
+
+row, col, edge = csr_row_wise_topk(indptr, indices, seeds, 8, weight)
+```
+
+测试位于 `test/csr_row_wise_topk/arch22/`。
+
 ### csr_row_wise_per_etype_sampling_uniform — 按边类型分组的 COO 行均匀采样
 
 ```python
